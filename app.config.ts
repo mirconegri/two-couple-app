@@ -55,16 +55,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         defaultChannel: 'messages'
       }
     ],
-    [
-      'expo-build-properties',
-      {
-        android: {
-          minSdkVersion: 24,
-          compileSdkVersion: 35,
-          targetSdkVersion: 35
-        }
-      }
-    ]
   ],
   experiments: {
     typedRoutes: false,
