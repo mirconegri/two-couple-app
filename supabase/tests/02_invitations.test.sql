@@ -1,5 +1,11 @@
 -- ---------------------------------------------------------------------------
--- Invitation lifecycle: valid, expired, revoked, reused, and full space.
+-- Invitation lifecycle: valid, malformed, unknown, already-a-member, full
+-- space, and reuse.
+--
+-- Ordering note: redeem_invitation() checks "already a member" BEFORE it
+-- looks up the code, deliberately — a user who already owns a space must not
+-- be able to probe which invitation codes exist. Tests that exercise the
+-- code-lookup path must therefore run as a non-member.
 -- ---------------------------------------------------------------------------
 
 begin;
@@ -19,6 +25,8 @@ values
    now(), now(), now());
 
 set local role authenticated;
+
+-- === User A creates the space and one invitation ==========================
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 
 select public.create_couple('Test space');
@@ -26,9 +34,13 @@ select public.create_couple('Test space');
 create temp table inv as
   select public.create_invitation(48) as code;
 
-select ok((select length(code) from inv) >= 16, 'invitation code is long enough');
+select ok(
+  (select length(code) from inv) >= 16,
+  'invitation code is long enough'
+);
 
--- A malformed code is rejected --------------------------------------------
+-- Malformed input is rejected by the length check, which runs before the
+-- membership check.
 select throws_ok(
   $$ select public.redeem_invitation('short') $$,
   '22023',
@@ -36,16 +48,26 @@ select throws_ok(
   'malformed code is rejected'
 );
 
--- Unknown code is rejected ------------------------------------------------
+-- User A already belongs to a space: any redemption attempt returns 23505
+-- before the code is even hashed and looked up.
+select throws_ok(
+  format($$ select public.redeem_invitation(%L) $$, (select code from inv)),
+  '23505',
+  null,
+  'a user who already belongs cannot redeem any code'
+);
+
+-- === User B is not yet a member ===========================================
+set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+
+-- Only a non-member reaches the code lookup, so this is the only account
+-- that can observe the "invalid invitation" path.
 select throws_ok(
   $$ select public.redeem_invitation('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') $$,
   '22023',
   null,
-  'unknown code is rejected'
+  'unknown code is rejected for a non-member'
 );
-
--- User B redeems successfully ---------------------------------------------
-set local request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 
 select lives_ok(
   format($$ select public.redeem_invitation(%L) $$, (select code from inv)),
@@ -58,24 +80,24 @@ select is(
   'the space now has exactly two members'
 );
 
--- User C cannot join a full space -----------------------------------------
+-- === The space is now full: no further invitations may be issued ==========
+set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+
+select throws_ok(
+  $$ select public.create_invitation(48) $$,
+  '23505',
+  null,
+  'an invitation cannot be issued for a full space'
+);
+
+-- === A third account cannot use the already-redeemed code =================
 set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 
 select throws_ok(
   format($$ select public.redeem_invitation(%L) $$, (select code from inv)),
   '23505',
   null,
-  'a third account cannot join an already-full space'
-);
-
--- Reuse is rejected -------------------------------------------------------
-set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
-
-select throws_ok(
-  format($$ select public.redeem_invitation(%L) $$, (select code from inv)),
-  '23505',
-  null,
-  'a used invitation cannot be redeemed again'
+  'a third account cannot join a full space with a used code'
 );
 
 select * from finish();
