@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "Two",
+    "slug": "two-couple-app",
+    "scheme": "twocouple",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B3B36"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.twocouple.space",
+    },
+    "android": {
+      "package": "app.twocouple.space",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.USE_BIOMETRIC"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0F766E",
+          "defaultChannel": "messages"
+        }
+      ],
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": false,
+      "tsconfigPaths": true
+    },
+    "extra": {
+      "supabaseUrl": "https://arilfasmvhlyhkjjfxds.supabase.co",
+      "supabaseAnonKey": "sb_publishable_eUZ9QKvr0X_tJKX04M3eOg_tto1WVQ_",
+      "eas": {
+        "projectId": "d3bcab9c-2ab2-4025-acf1-1e6bb64beeba"
+      }
+    }
+  }
+}
