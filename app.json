@@ -18,7 +18,7 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.twocouple.space",
+      "bundleIdentifier": "app.twocouple.space"
     },
     "android": {
       "package": "app.twocouple.space",
