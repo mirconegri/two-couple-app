@@ -36,7 +36,7 @@ describe('errorMessage', () => {
     expect(long.length).toBeLessThanOrEqual(200);
   });
 
-  it('falls back when the message is only a prefix', () => {
-    expect(errorMessage(new Error('Error: '))).toBe('Error:');
+  it('falls back to a generic message when only the prefix remains', () => {
+    expect(errorMessage(new Error('Error: '))).toBe('Something went wrong');
   });
 });

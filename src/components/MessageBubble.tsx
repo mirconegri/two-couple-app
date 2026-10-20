@@ -60,7 +60,7 @@ export function MessageBubble({
               paddingVertical: spacing.sm + 2,
               borderWidth: isMine ? 0 : StyleSheet.hairlineWidth,
               borderColor: colors.border,
-              borderBottomRightRadius: isMine ? radii.xs ?? 6 : radii.lg,
+              borderBottomRightRadius: isMine ? 6 : radii.lg,
               borderBottomLeftRadius: isMine ? radii.lg : 6,
             },
           ]}

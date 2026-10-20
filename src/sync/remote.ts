@@ -142,7 +142,9 @@ export const supabaseRemote: RemotePort = {
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return (data as MessageDto[] | null)?.map(mapMessageDto) ?? [];
+
+    const rows = (data ?? []) as unknown as MessageDto[];
+    return rows.map(mapMessageDto);
   },
 
   async fetchEventsSince(coupleId, since) {
@@ -161,6 +163,8 @@ export const supabaseRemote: RemotePort = {
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return (data as EventDto[] | null)?.map(mapEventDto) ?? [];
+
+    const rows = (data ?? []) as unknown as EventDto[];
+    return rows.map(mapEventDto);
   },
 };
