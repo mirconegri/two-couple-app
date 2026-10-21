@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { CalendarEvent, EventVisibility, Message } from '../types';
+import type { CalendarEvent, EventVisibility, Member, Message } from '../types';
 import type { PushEventPayload } from '../db/events';
 
 /**
@@ -17,6 +17,7 @@ export interface RemotePort {
 
   fetchMessagesSince(coupleId: string, since: string | null): Promise<Message[]>;
   fetchEventsSince(coupleId: string, since: string | null): Promise<CalendarEvent[]>;
+  fetchMembers(coupleId: string): Promise<Member[]>;
 }
 
 interface MessageDto {
@@ -166,5 +167,28 @@ export const supabaseRemote: RemotePort = {
 
     const rows = (data ?? []) as unknown as EventDto[];
     return rows.map(mapEventDto);
+  },
+
+  async fetchMembers(coupleId) {
+    const { data, error } = await supabase
+      .from('couple_members')
+      .select('user_id, couple_id, joined_at')
+      .eq('couple_id', coupleId);
+
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []) as unknown as {
+      user_id: string;
+      couple_id: string;
+      joined_at: string;
+    }[];
+
+    return rows.map((row) => ({
+      userId: row.user_id,
+      email: null,
+      displayName: null,
+      coupleId: row.couple_id,
+      joinedAt: row.joined_at,
+    }));
   },
 };

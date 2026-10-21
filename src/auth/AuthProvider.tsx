@@ -60,6 +60,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .select('user_id, couple_id, joined_at');
 
     if (error) {
+      if (db) {
+        try {
+          const localRows = await db.getAllAsync<{
+            user_id: string;
+            couple_id: string;
+            joined_at: string;
+            email: string | null;
+            display_name: string | null;
+          }>('select user_id, couple_id, joined_at, email, display_name from members');
+
+          const firstLocal = localRows[0];
+          if (firstLocal) {
+            setCoupleId(firstLocal.couple_id);
+            setMembers(
+              localRows.map((r) => ({
+                userId: r.user_id,
+                email: r.email,
+                displayName: r.display_name,
+                coupleId: r.couple_id,
+                joinedAt: r.joined_at,
+              })),
+            );
+            setAuthError(null);
+            return;
+          }
+        } catch {
+          // Ignore local query error and report remote error
+        }
+      }
       setAuthError(errorMessage(error));
       return;
     }

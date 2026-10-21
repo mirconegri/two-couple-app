@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -83,6 +84,26 @@ export default function SettingsScreen() {
           <Row label="Signed in as" value={email ?? '—'} />
           <Row label="Your space" value={coupleId ? 'Private, 2 members' : 'Not set up'} />
           <Row label="Partner" value={partner ? 'Joined' : 'Waiting to join'} />
+          {members.length < 2 ? (
+            <Pressable
+              onPress={() => router.push('/(app)/invite')}
+              style={[
+                styles.row,
+                {
+                  paddingTop: spacing.sm,
+                  marginTop: spacing.xs,
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: colors.border,
+                },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[typography.body, { color: colors.accent }]}>
+                Invite your partner
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.accent} />
+            </Pressable>
+          ) : null}
         </Card>
 
         <Card style={{ marginBottom: spacing.md }}>

@@ -24,6 +24,7 @@ export interface SyncResult {
   pushFailures: number;
   pulledMessages: number;
   pulledEvents: number;
+  pulledMembers: number;
   error: string | null;
 }
 
@@ -32,6 +33,7 @@ const EMPTY_RESULT: SyncResult = {
   pushFailures: 0,
   pulledMessages: 0,
   pulledEvents: 0,
+  pulledMembers: 0,
   error: null,
 };
 
@@ -179,6 +181,46 @@ export async function pullChanges(
   }
 }
 
+/**
+ * Pull authoritative membership.
+ *
+ * Rewrites the local members table so that offline rendering and partner
+ * detection stay up to date.
+ */
+export async function pullMembers(
+  db: AppDatabase,
+  remote: RemotePort,
+  coupleId: string,
+): Promise<{ members: number; error: string | null }> {
+  try {
+    const members = await remote.fetchMembers(coupleId);
+
+    await db.withExclusiveTransactionAsync(async () => {
+      await db.runAsync('delete from members where couple_id = ?', coupleId);
+      for (const member of members) {
+        await db.runAsync(
+          `insert into members (user_id, email, display_name, couple_id, joined_at)
+           values (?, ?, ?, ?, ?)
+           on conflict (user_id) do update set
+             couple_id = excluded.couple_id,
+             email = excluded.email,
+             display_name = excluded.display_name,
+             joined_at = excluded.joined_at`,
+          member.userId,
+          member.email,
+          member.displayName,
+          member.coupleId,
+          member.joinedAt,
+        );
+      }
+    });
+
+    return { members: members.length, error: null };
+  } catch (error) {
+    return { members: 0, error: errorMessage(error) };
+  }
+}
+
 /** Push everything pending, then pull everything new. */
 export async function runSyncCycle(
   db: AppDatabase,
@@ -189,12 +231,14 @@ export async function runSyncCycle(
 
   const push = await drainOutbox(db, remote);
   const pull = await pullChanges(db, remote, coupleId);
+  const members = await pullMembers(db, remote, coupleId);
 
   return {
     pushed: push.pushed,
     pushFailures: push.failures,
     pulledMessages: pull.messages,
     pulledEvents: pull.events,
-    error: push.error ?? pull.error,
+    pulledMembers: members.members,
+    error: push.error ?? pull.error ?? members.error,
   };
 }

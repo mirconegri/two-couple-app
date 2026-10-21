@@ -43,5 +43,10 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/(auth)/sign-in" />;
   if (!coupleId) return <Redirect href="/(onboarding)/start" />;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="invite" options={{ headerShown: false }} />
+    </Stack>
+  );
 }

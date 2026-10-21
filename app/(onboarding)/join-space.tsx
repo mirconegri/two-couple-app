@@ -24,8 +24,9 @@ export default function JoinSpaceScreen() {
     setBusy(true);
     setError(null);
     try {
+      const cleanCode = code.replace(/\s+/g, '');
       const { error: rpcError } = await supabase.rpc('redeem_invitation', {
-        p_code: code.trim(),
+        p_code: cleanCode,
       });
       if (rpcError) throw new Error(rpcError.message);
 
@@ -68,7 +69,7 @@ export default function JoinSpaceScreen() {
           label="Join"
           onPress={redeem}
           loading={busy}
-          disabled={code.trim().length < 16}
+          disabled={code.replace(/\s+/g, '').length < 16}
         />
 
         <Text

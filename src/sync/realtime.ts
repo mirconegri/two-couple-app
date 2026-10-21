@@ -8,6 +8,7 @@ const UUID_PATTERN =
 export interface RealtimeHandlers {
   onMessagesChanged: () => void;
   onEventsChanged: () => void;
+  onMembersChanged: () => void;
   onStatus?: (status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED' | 'OTHER') => void;
 }
 
@@ -58,6 +59,19 @@ export function subscribeToCouple(
       () => {
         if (disposed) return;
         handlers.onEventsChanged();
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'couple_members',
+        filter: `couple_id=eq.${coupleId}`,
+      },
+      () => {
+        if (disposed) return;
+        handlers.onMembersChanged();
       },
     )
     .subscribe((status) => {

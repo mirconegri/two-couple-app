@@ -32,7 +32,7 @@ const FOREGROUND_INTERVAL_MS = 30_000;
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const db = useSQLiteContext();
-  const { coupleId } = useAuth();
+  const { coupleId, refreshCouple } = useAuth();
 
   const [syncing, setSyncing] = useState(false);
   const [lastResult, setLastResult] = useState<SyncResult | null>(null);
@@ -66,6 +66,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       setLastResult(result);
       setLastSyncedAt(new Date().toISOString());
       await refreshPending();
+      await refreshCouple(db);
       return result;
     } finally {
       running.current = false;
@@ -116,6 +117,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = subscribeToCouple(coupleId, {
       onMessagesChanged: () => void syncNow(),
       onEventsChanged: () => void syncNow(),
+      onMembersChanged: () => void syncNow(),
       onStatus: (status) => setRealtimeStatus(status),
     });
 

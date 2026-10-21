@@ -70,6 +70,27 @@ export default function HomeScreen() {
           {nextEvent ? nextEvent.title : 'Your space'}
         </Text>
 
+        {members.length < 2 ? (
+          <Card style={{ marginBottom: spacing.lg }}>
+            <Text style={[typography.heading, { color: colors.text }]}>
+              Your partner hasn't joined yet
+            </Text>
+            <Text
+              style={[
+                typography.body,
+                { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
+              ]}
+            >
+              Share your invitation code so they can join your space.
+            </Text>
+            <Button
+              label="Show invitation"
+              variant="secondary"
+              onPress={() => router.push('/(app)/invite')}
+            />
+          </Card>
+        ) : null}
+
         <Card style={{ marginBottom: spacing.lg }}>
           <Text style={[typography.caption, { color: colors.textMuted }]}>
             Next up

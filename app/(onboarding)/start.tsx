@@ -1,15 +1,21 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../../src/components/Screen';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
+import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 
 export default function OnboardingStart() {
+  const { coupleId } = useAuth();
   const { colors, spacing, typography } = useTheme();
+
+  if (coupleId) {
+    return <Redirect href="/(app)/(tabs)" />;
+  }
 
   return (
     <Screen scroll>
