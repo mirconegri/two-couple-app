@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import type { AppDatabase } from '../db';
+import { listEvents } from '../db/events';
 import type { CalendarEvent } from '../types';
 
 export const MESSAGE_CHANNEL_ID = 'messages';
@@ -102,7 +104,7 @@ export async function scheduleEventReminders(event: CalendarEvent): Promise<void
         sound: 'default',
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        type: Notifications.SchedulableTriggerInputTypes?.DATE ?? 'date',
         date: fireDate,
         channelId: EVENT_CHANNEL_ID,
       },
@@ -110,8 +112,25 @@ export async function scheduleEventReminders(event: CalendarEvent): Promise<void
   }
 }
 
-export async function rescheduleAllReminders(events: readonly CalendarEvent[]): Promise<void> {
-  for (const event of events) {
-    await scheduleEventReminders(event);
+export async function rescheduleAllReminders(events: readonly CalendarEvent[]): Promise<void>;
+export async function rescheduleAllReminders(db: AppDatabase, coupleId: string): Promise<void>;
+export async function rescheduleAllReminders(
+  source: AppDatabase | readonly CalendarEvent[],
+  coupleId?: string,
+): Promise<void> {
+  try {
+    let events: readonly CalendarEvent[];
+    if (Array.isArray(source)) {
+      events = source;
+    } else if (coupleId) {
+      events = await listEvents(source as AppDatabase, coupleId);
+    } else {
+      return;
+    }
+    for (const event of events) {
+      await scheduleEventReminders(event);
+    }
+  } catch {
+    // Best effort: reminders failure must not break caller
   }
 }

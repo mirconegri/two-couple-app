@@ -15,6 +15,7 @@ import { supabaseRemote } from './remote';
 import { subscribeToCouple } from './realtime';
 import { countPending } from '../db/outbox';
 import { useAuth } from '../auth/AuthProvider';
+import { rescheduleAllReminders } from '../notifications/reminders';
 
 interface SyncContextValue {
   syncing: boolean;
@@ -67,6 +68,9 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       setLastSyncedAt(new Date().toISOString());
       await refreshPending();
       await refreshCouple(db);
+      if (result.pulledEvents > 0) {
+        void rescheduleAllReminders(db, coupleId);
+      }
       return result;
     } finally {
       running.current = false;
@@ -99,7 +103,10 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }, FOREGROUND_INTERVAL_MS);
 
     const handleAppState = (state: AppStateStatus) => {
-      if (state === 'active') void syncNow();
+      if (state === 'active') {
+        void syncNow();
+        void rescheduleAllReminders(db, coupleId);
+      }
     };
 
     const subscription = AppState.addEventListener('change', handleAppState);

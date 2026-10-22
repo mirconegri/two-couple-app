@@ -90,7 +90,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Every token in this space that does not belong to the sender.
   const { data: tokens, error } = await admin
     .from('push_tokens')
-    .select('expo_token')
+    .select('expo_token, user_id')
     .eq('couple_id', record.couple_id)
     .neq('user_id', record.sender_id);
 
@@ -103,8 +103,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ ok: true, skipped: 'no recipient tokens' });
   }
 
-  const messages = tokens.map((row: { expo_token: string }) => ({
+  interface RecipientMessage {
+    to: string;
+    userId: string;
+    title: string;
+    body: string;
+    data: { type: string; coupleId: string };
+    priority: string;
+    channelId: string;
+    sound: string;
+  }
+
+  const messages: RecipientMessage[] = tokens.map((row: { expo_token: string; user_id: string }) => ({
     to: row.expo_token,
+    userId: row.user_id,
     title: 'New message',
     body: 'Open Two to read it',
     data: { type: 'chat', coupleId: record.couple_id },
@@ -135,10 +147,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // A ticket only means Expo accepted the request. Delivery is confirmed
   // later by a receipt, which this function deliberately does not poll.
   const stale: string[] = [];
+  const failures: Array<{
+    user_id: string;
+    couple_id: string;
+    error: string;
+    details: unknown;
+  }> = [];
+
   (result.data ?? []).forEach((ticket, index) => {
-    if (ticket.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
-      const target = messages[index];
-      if (target) stale.push(target.to);
+    const target = messages[index];
+    if (ticket.status === 'error') {
+      console.error(`push ticket error for token ${target?.to}:`, ticket.message, ticket.details);
+      if (ticket.details?.error === 'DeviceNotRegistered') {
+        if (target) stale.push(target.to);
+      } else if (target) {
+        failures.push({
+          user_id: target.userId,
+          couple_id: record.couple_id,
+          error: ticket.details?.error || ticket.message || 'unknown error',
+          details: ticket,
+        });
+      }
     }
   });
 
@@ -147,5 +176,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log(`removed ${stale.length} unregistered token(s)`);
   }
 
-  return json({ ok: true, requested: messages.length, stale: stale.length });
+  if (failures.length > 0) {
+    const { error: insertError } = await admin.from('push_failures').insert(failures);
+    if (insertError) {
+      console.error('failed to record push failures', insertError.message);
+    }
+  }
+
+  return json({
+    ok: true,
+    requested: messages.length,
+    stale: stale.length,
+    failures: failures.length,
+  });
 });

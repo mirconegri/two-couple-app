@@ -10,6 +10,10 @@ import { DATABASE_NAME, initDatabase } from '../src/db';
 import { AuthProvider } from '../src/auth/AuthProvider';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { SyncProvider } from '../src/sync/SyncProvider';
+import { configureNotificationChannels } from '../src/notifications/reminders';
+
+// Ensure Android notification channels exist before any notification is scheduled.
+void configureNotificationChannels();
 
 // Foreground behaviour: a message notification should not interrupt an open
 // conversation, so banners are suppressed while the app is active.

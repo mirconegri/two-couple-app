@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 
 import { Screen } from '../../../src/components/Screen';
 import { Card } from '../../../src/components/Card';
@@ -11,8 +12,9 @@ import { StatusPill } from '../../../src/components/StatusPill';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useSync } from '../../../src/sync/SyncProvider';
 import { useTheme } from '../../../src/theme/ThemeProvider';
-import { clearLocalData } from '../../../src/db';
+import { clearLocalData, getMeta } from '../../../src/db';
 import { unregisterPushToken } from '../../../src/notifications/push';
+import { ensureNotificationPermission } from '../../../src/notifications/reminders';
 import { errorMessage } from '../../../src/utils/errors';
 
 export default function SettingsScreen() {
@@ -23,6 +25,13 @@ export default function SettingsScreen() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pushStatus, setPushStatus] = useState<string>('Checking…');
+
+  useEffect(() => {
+    void getMeta(db, 'push_token_status').then((val) => {
+      setPushStatus(val || 'Not registered');
+    });
+  }, [db]);
 
   const me = members.find((member) => member.userId === userId);
   const partner = members.find((member) => member.userId !== userId);
@@ -42,12 +51,37 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: () => {
           void (async () => {
-            await unregisterPushToken();
+            await unregisterPushToken(db);
             await signOut();
           })();
         },
       },
     ]);
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      const granted = await ensureNotificationPermission();
+      if (!granted) {
+        Alert.alert('Permission required', 'Please enable notifications in system settings.');
+        return;
+      }
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Two',
+          body: 'Notifications are working properly!',
+          sound: 'default',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes?.DATE ?? 'date',
+          date: new Date(Date.now() + 3000),
+          channelId: 'messages',
+        },
+      });
+      Alert.alert('Test scheduled', 'A notification will appear in 3 seconds.');
+    } catch (caught) {
+      Alert.alert('Test failed', errorMessage(caught));
+    }
   };
 
   const handleClearData = () => {
@@ -149,6 +183,19 @@ export default function SettingsScreen() {
             variant="secondary"
             onPress={handleSync}
             loading={busy}
+            style={{ marginTop: spacing.md }}
+          />
+        </Card>
+
+        <Card style={{ marginBottom: spacing.md }}>
+          <Text style={[typography.heading, { color: colors.text, marginBottom: spacing.sm }]}>
+            Notifications
+          </Text>
+          <Row label="Push status" value={pushStatus} />
+          <Button
+            label="Send test notification"
+            variant="secondary"
+            onPress={handleTestNotification}
             style={{ marginTop: spacing.md }}
           />
         </Card>

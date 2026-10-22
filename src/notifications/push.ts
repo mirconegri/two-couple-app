@@ -1,15 +1,18 @@
-import Constants from 'expo-constants';
+import Constants, { AppOwnership, ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 import { EAS_PROJECT_ID } from '../lib/env';
+import { type AppDatabase, setMeta } from '../db';
 
 export interface PushRegistrationResult {
   ok: boolean;
   reason?: string;
 }
+
+export const PUSH_META_KEY = 'push_token_status';
 
 /**
  * Register this device for remote push.
@@ -21,12 +24,35 @@ export interface PushRegistrationResult {
 export async function registerForPushNotifications(
   coupleId: string,
   userId: string,
+  db?: AppDatabase,
 ): Promise<PushRegistrationResult> {
+  const saveStatus = async (status: string) => {
+    if (!db) return;
+    try {
+      await setMeta(db, PUSH_META_KEY, status);
+    } catch {
+      // Best effort
+    }
+  };
+
   if (Platform.OS !== 'android') {
+    await saveStatus('This build targets Android only');
     return { ok: false, reason: 'This build targets Android only.' };
   }
 
+  if (
+    Constants.appOwnership === AppOwnership.Expo ||
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+  ) {
+    console.log(
+      'Push tokens require a development build or standalone APK (not supported in Expo Go).',
+    );
+    await saveStatus('Not supported in Expo Go');
+    return { ok: false, reason: 'Not supported in Expo Go' };
+  }
+
   if (!Device.isDevice) {
+    await saveStatus('Push notifications need a physical device');
     return { ok: false, reason: 'Push notifications need a physical device.' };
   }
 
@@ -37,6 +63,7 @@ export async function registerForPushNotifications(
     '';
 
   if (!projectId) {
+    await saveStatus('EAS project ID missing');
     return {
       ok: false,
       reason: 'EAS project id is missing. Run "eas init" and set EAS_PROJECT_ID.',
@@ -52,6 +79,7 @@ export async function registerForPushNotifications(
   }
 
   if (!granted) {
+    await saveStatus('Permission denied');
     return { ok: false, reason: 'Notification permission was not granted.' };
   }
 
@@ -61,6 +89,7 @@ export async function registerForPushNotifications(
     token = result.data;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
+    await saveStatus(`Error: ${message}`);
     return { ok: false, reason: `Could not obtain a push token: ${message}` };
   }
 
@@ -76,14 +105,24 @@ export async function registerForPushNotifications(
   );
 
   if (error) {
+    await saveStatus(`Error: ${error.message}`);
     return { ok: false, reason: `Could not register the token: ${error.message}` };
   }
 
+  await saveStatus('Active (token registered)');
   return { ok: true };
 }
 
 /** Remove this device's token — used when signing out or unlinking a phone. */
-export async function unregisterPushToken(): Promise<void> {
+export async function unregisterPushToken(db?: AppDatabase): Promise<void> {
+  if (db) {
+    try {
+      await setMeta(db, PUSH_META_KEY, 'Not registered');
+    } catch {
+      // Best effort
+    }
+  }
+
   if (!Device.isDevice) return;
 
   const projectId =

@@ -2,24 +2,21 @@ import React, { useEffect } from 'react';
 import { Redirect, Stack } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { registerForPushNotifications } from '../../src/notifications/push';
-import { configureNotificationChannels } from '../../src/notifications/reminders';
 import { LoadingScreen } from '../../src/components/LoadingScreen';
 
 export default function AppLayout() {
   const { ready, session, coupleId, userId } = useAuth();
-
-  useEffect(() => {
-    void configureNotificationChannels();
-  }, []);
+  const db = useSQLiteContext();
 
   useEffect(() => {
     if (!coupleId || !userId) return;
     // Best effort: a failure here must never block the app.
-    void registerForPushNotifications(coupleId, userId);
-  }, [coupleId, userId]);
+    void registerForPushNotifications(coupleId, userId, db);
+  }, [coupleId, userId, db]);
 
   // Deep link from a notification tap.
   useEffect(() => {
