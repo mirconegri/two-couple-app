@@ -31,7 +31,7 @@ export default function ChatScreen() {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const { colors, spacing, typography, radii } = useTheme();
-  const { userId, coupleId } = useAuth();
+  const { userId, coupleId, members } = useAuth();
   const { notifyLocalChange, syncing } = useSync();
   const { messages, loading, loadingMore, loadOlder, retry, hasMore } = useMessages();
 
@@ -106,13 +106,20 @@ export default function ChatScreen() {
       const showSenderName =
         !next || next.senderId !== item.senderId;
 
+      const isMine = item.senderId === userId;
+      const me = members.find((m) => m.userId === userId);
+      const partner = members.find((m) => m.userId !== userId);
+      const myName = me?.displayName || 'You';
+      const partnerName = partner?.displayName || 'Partner';
+      const senderName = isMine ? myName : partnerName;
+
       return (
         <View>
           <MessageBubble
             message={item}
-            isMine={item.senderId === userId}
+            isMine={isMine}
             showSenderName={showSenderName}
-            senderName="Them"
+            senderName={senderName}
             onRetry={(id) => void retry(id)}
           />
           {showDay ? (
@@ -132,7 +139,7 @@ export default function ChatScreen() {
         </View>
       );
     },
-    [colors.textFaint, messages, retry, spacing.md, typography.micro, userId],
+    [colors.textFaint, members, messages, retry, spacing.md, typography.micro, userId],
   );
 
   if (loading) {

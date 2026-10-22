@@ -23,6 +23,8 @@ export default function HomeScreen() {
   const { pendingCount, syncing, lastSyncedAt } = useSync();
 
   const partner = members.find((member) => member.userId !== userId);
+  const me = members.find((member) => member.userId === userId);
+  const hasName = Boolean(me?.displayName);
 
   const upcoming = useMemo(() => {
     const now = new Date();
@@ -87,6 +89,27 @@ export default function HomeScreen() {
               label="Show invitation"
               variant="secondary"
               onPress={() => router.push('/(app)/invite')}
+            />
+          </Card>
+        ) : null}
+
+        {!hasName ? (
+          <Card style={{ marginBottom: spacing.lg }}>
+            <Text style={[typography.heading, { color: colors.text }]}>
+              What should your partner call you?
+            </Text>
+            <Text
+              style={[
+                typography.body,
+                { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
+              ]}
+            >
+              Set a display name so your partner knows who sent messages and added events.
+            </Text>
+            <Button
+              label="Set your name"
+              variant="secondary"
+              onPress={() => router.push('/(app)/profile')}
             />
           </Card>
         ) : null}

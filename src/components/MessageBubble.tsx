@@ -39,11 +39,17 @@ export function MessageBubble({
       ]}
     >
       <View style={{ maxWidth: '82%' }}>
-        {showSenderName && !isMine ? (
+        {showSenderName ? (
           <Text
             style={[
               typography.micro,
-              { color: colors.textMuted, marginBottom: 2, marginLeft: spacing.xs },
+              {
+                color: colors.textMuted,
+                marginBottom: 2,
+                marginLeft: isMine ? 0 : spacing.xs,
+                marginRight: isMine ? spacing.xs : 0,
+                textAlign: isMine ? 'right' : 'left',
+              },
             ]}
           >
             {senderName}

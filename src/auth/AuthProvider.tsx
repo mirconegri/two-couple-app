@@ -98,28 +98,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const resolvedCoupleId = first?.couple_id ?? null;
 
     setCoupleId(resolvedCoupleId);
-    setMembers(
-      rows.map((row) => ({
+
+    const profileMap = new Map<string, string | null>();
+    if (resolvedCoupleId) {
+      try {
+        const { data: profileRows } = await supabase.rpc('get_couple_profiles');
+        if (Array.isArray(profileRows)) {
+          for (const p of profileRows as Array<{ user_id: string; display_name: string | null }>) {
+            profileMap.set(p.user_id, p.display_name);
+          }
+        }
+      } catch {
+        // Fall back gracefully if profiles lookup fails
+      }
+    }
+
+    const currentEmail = userData.user?.email ?? null;
+    const emailPrefix = currentEmail ? currentEmail.split('@')[0] : null;
+
+    const populatedMembers = rows.map((row) => {
+      const explicitName = profileMap.get(row.user_id);
+      const fallbackName = row.user_id === userId ? (explicitName || emailPrefix) : explicitName;
+      return {
         userId: row.user_id,
-        email: null,
-        displayName: null,
+        email: row.user_id === userId ? currentEmail : null,
+        displayName: fallbackName ?? null,
         coupleId: row.couple_id,
         joinedAt: row.joined_at,
-      })),
-    );
+      };
+    });
+
+    setMembers(populatedMembers);
     setAuthError(null);
 
     if (db && resolvedCoupleId) {
       // Cache membership locally so the app can render offline.
       await db.runAsync('delete from members where couple_id = ?', resolvedCoupleId);
-      for (const row of rows) {
+      for (const member of populatedMembers) {
         await db.runAsync(
           `insert into members (user_id, email, display_name, couple_id, joined_at)
-           values (?, null, null, ?, ?)
-           on conflict (user_id) do update set couple_id = excluded.couple_id`,
-          row.user_id,
-          row.couple_id,
-          row.joined_at,
+           values (?, ?, ?, ?, ?)
+           on conflict (user_id) do update set
+             couple_id = excluded.couple_id,
+             email = excluded.email,
+             display_name = excluded.display_name,
+             joined_at = excluded.joined_at`,
+          member.userId,
+          member.email,
+          member.displayName,
+          member.coupleId,
+          member.joinedAt,
         );
       }
     }

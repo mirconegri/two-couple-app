@@ -177,6 +177,18 @@ export const supabaseRemote: RemotePort = {
 
     if (error) throw new Error(error.message);
 
+    const profileMap = new Map<string, string | null>();
+    try {
+      const { data: profiles } = await supabase.rpc('get_couple_profiles');
+      if (Array.isArray(profiles)) {
+        for (const p of profiles as Array<{ user_id: string; display_name: string | null }>) {
+          profileMap.set(p.user_id, p.display_name);
+        }
+      }
+    } catch {
+      // Best effort profile fetch
+    }
+
     const rows = (data ?? []) as unknown as {
       user_id: string;
       couple_id: string;
@@ -186,7 +198,7 @@ export const supabaseRemote: RemotePort = {
     return rows.map((row) => ({
       userId: row.user_id,
       email: null,
-      displayName: null,
+      displayName: profileMap.get(row.user_id) ?? null,
       coupleId: row.couple_id,
       joinedAt: row.joined_at,
     }));

@@ -24,6 +24,7 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const me = members.find((member) => member.userId === userId);
   const partner = members.find((member) => member.userId !== userId);
 
   const handleSync = async () => {
@@ -82,8 +83,24 @@ export default function SettingsScreen() {
 
         <Card style={{ marginBottom: spacing.md }}>
           <Row label="Signed in as" value={email ?? '—'} />
+          <Pressable
+            onPress={() => router.push('/(app)/profile')}
+            style={[styles.row, { paddingVertical: spacing.xs }]}
+            accessibilityRole="button"
+          >
+            <Text style={[typography.caption, { color: colors.textMuted }]}>Your name</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={[typography.caption, { color: colors.text }]}>
+                {me?.displayName ?? 'Not set'}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.textFaint} />
+            </View>
+          </Pressable>
           <Row label="Your space" value={coupleId ? 'Private, 2 members' : 'Not set up'} />
-          <Row label="Partner" value={partner ? 'Joined' : 'Waiting to join'} />
+          <Row
+            label="Partner"
+            value={partner ? (partner.displayName || 'Joined') : 'Waiting to join'}
+          />
           {members.length < 2 ? (
             <Pressable
               onPress={() => router.push('/(app)/invite')}

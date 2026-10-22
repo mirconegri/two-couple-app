@@ -22,7 +22,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const { colors, spacing, typography, radii } = useTheme();
-  const { userId } = useAuth();
+  const { userId, members } = useAuth();
   const { notifyLocalChange, lastSyncedAt } = useSync();
 
   const [event, setEvent] = useState<CalendarEvent | null>(null);
@@ -92,6 +92,8 @@ export default function EventDetailScreen() {
   }
 
   const isMine = event.createdBy === userId;
+  const creator = members.find((m) => m.userId === event.createdBy);
+  const creatorName = isMine ? 'You' : (creator?.displayName || 'Your partner');
 
   return (
     <Screen scroll>
@@ -147,7 +149,7 @@ export default function EventDetailScreen() {
                 .join(', ')}
             />
           ) : null}
-          <DetailRow label="Created by" value={isMine ? 'You' : 'Your partner'} />
+          <DetailRow label="Created by" value={creatorName} />
         </Card>
 
         {event.description ? (

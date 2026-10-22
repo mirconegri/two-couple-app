@@ -74,6 +74,18 @@ export function subscribeToCouple(
         handlers.onMembersChanged();
       },
     )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'profiles',
+      },
+      () => {
+        if (disposed) return;
+        handlers.onMembersChanged();
+      },
+    )
     .subscribe((status) => {
       if (disposed) return;
       const normalised =
