@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { Button } from '../../src/components/Button';
+import { NavBarButton } from '../../src/components/NavBarButton';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { supabase } from '../../src/lib/supabase';
@@ -42,41 +42,48 @@ export default function ProfileScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.lg }}>
+      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
         <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </Pressable>
-          <Text style={[typography.heading, { color: colors.text }]}>Your name</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        <View style={{ marginTop: spacing.xl }}>
-          <Text
-            style={[
-              typography.body,
-              { color: colors.textMuted, marginBottom: spacing.lg },
-            ]}
-          >
-            Choose what your partner calls you in chat, events, and notes.
-          </Text>
-
-          <TextField
-            label="Display name"
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Alex"
-            maxLength={40}
-            error={error}
-          />
-
-          <Button
-            label="Save name"
-            onPress={save}
-            loading={busy}
-            style={{ marginTop: spacing.lg }}
+          <NavBarButton
+            icon="chevron-back"
+            label="Settings"
+            onPress={() => router.back()}
           />
         </View>
+
+        <Text
+          style={[
+            typography.largeTitle,
+            { color: colors.text, marginTop: spacing.xs, marginBottom: spacing.sm },
+          ]}
+        >
+          Your Name
+        </Text>
+
+        <Text
+          style={[
+            typography.subheadline,
+            { color: colors.textMuted, marginBottom: spacing.xl },
+          ]}
+        >
+          Choose what your partner sees in chat, shared events, and notes.
+        </Text>
+
+        <TextField
+          label="Display name"
+          value={name}
+          onChangeText={setName}
+          placeholder="e.g. Alex"
+          maxLength={40}
+          error={error}
+        />
+
+        <Button
+          label="Save"
+          onPress={save}
+          loading={busy}
+          style={{ marginTop: spacing.md }}
+        />
       </View>
     </Screen>
   );
@@ -86,6 +93,6 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 8,
   },
 });

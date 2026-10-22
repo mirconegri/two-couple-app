@@ -11,7 +11,7 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 
 export default function OnboardingStart() {
   const { coupleId } = useAuth();
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, typography, radii } = useTheme();
 
   if (coupleId) {
     return <Redirect href="/(app)/(tabs)" />;
@@ -19,8 +19,8 @@ export default function OnboardingStart() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.xxxl }}>
-        <Text style={[typography.display, { color: colors.text }]}>
+      <View style={{ paddingTop: spacing.xxl, paddingBottom: spacing.xxxl }}>
+        <Text style={[typography.largeTitle, { color: colors.text }]}>
           Let&apos;s set up your space
         </Text>
         <Text
@@ -38,18 +38,18 @@ export default function OnboardingStart() {
             <View
               style={[
                 styles.iconWrap,
-                { backgroundColor: colors.accentSoft, borderRadius: 14 },
+                { backgroundColor: colors.accentSoft, borderRadius: radii.md },
               ]}
             >
               <Ionicons name="add-circle-outline" size={22} color={colors.accent} />
             </View>
             <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={[typography.heading, { color: colors.text }]}>
+              <Text style={[typography.headline, { color: colors.text }]}>
                 Create the space
               </Text>
               <Text
                 style={[
-                  typography.caption,
+                  typography.subheadline,
                   { color: colors.textMuted, marginTop: 2 },
                 ]}
               >
@@ -70,18 +70,18 @@ export default function OnboardingStart() {
             <View
               style={[
                 styles.iconWrap,
-                { backgroundColor: colors.surfaceMuted, borderRadius: 14 },
+                { backgroundColor: colors.surfaceMuted, borderRadius: radii.md },
               ]}
             >
               <Ionicons name="key-outline" size={22} color={colors.textMuted} />
             </View>
             <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={[typography.heading, { color: colors.text }]}>
+              <Text style={[typography.headline, { color: colors.text }]}>
                 Join with a code
               </Text>
               <Text
                 style={[
-                  typography.caption,
+                  typography.subheadline,
                   { color: colors.textMuted, marginTop: 2 },
                 ]}
               >

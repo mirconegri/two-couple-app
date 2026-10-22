@@ -12,7 +12,7 @@ import { errorMessage } from '../../src/utils/errors';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, typography, radii } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,23 +33,23 @@ export default function SignInScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.huge }}>
+      <View style={{ paddingTop: spacing.huge, paddingBottom: spacing.xxxl }}>
         <View
           style={[
             styles.mark,
-            { backgroundColor: colors.accentSoft, borderRadius: 20 },
+            { backgroundColor: colors.accentSoft, borderRadius: radii.xl },
           ]}
         >
           <Ionicons name="heart-half-outline" size={30} color={colors.accent} />
         </View>
 
-        <Text style={[typography.display, { color: colors.text, marginTop: spacing.xl }]}>
+        <Text style={[typography.largeTitle, { color: colors.text, marginTop: spacing.xl }]}>
           Two
         </Text>
         <Text
           style={[
-            typography.body,
-            { color: colors.textMuted, marginTop: spacing.sm, marginBottom: spacing.xxxl },
+            typography.subheadline,
+            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xxxl },
           ]}
         >
           A private space for the two of you. Messages, plans, nothing else.

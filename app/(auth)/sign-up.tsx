@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { Button } from '../../src/components/Button';
+import { NavBarButton } from '../../src/components/NavBarButton';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { errorMessage } from '../../src/utils/errors';
@@ -45,12 +46,20 @@ export default function SignUpScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.xxxl }}>
-        <Text style={[typography.title, { color: colors.text }]}>Create an account</Text>
+      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
+        <View style={{ marginBottom: spacing.md }}>
+          <NavBarButton
+            icon="chevron-back"
+            label="Sign In"
+            onPress={() => router.back()}
+          />
+        </View>
+
+        <Text style={[typography.largeTitle, { color: colors.text }]}>Create an account</Text>
         <Text
           style={[
-            typography.body,
-            { color: colors.textMuted, marginTop: spacing.sm, marginBottom: spacing.xxl },
+            typography.subheadline,
+            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xxl },
           ]}
         >
           This account is one half of the space. Your partner creates their own.

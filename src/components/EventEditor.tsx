@@ -18,6 +18,8 @@ import DateTimePicker, {
 import { Screen } from './Screen';
 import { TextField } from './TextField';
 import { Button } from './Button';
+import { NavBarButton } from './NavBarButton';
+import { SegmentedControl } from './SegmentedControl';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useTheme } from '../theme/ThemeProvider';
@@ -233,13 +235,16 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
     <Screen scroll>
       <View style={{ paddingTop: spacing.lg }}>
         <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Text style={[typography.body, { color: colors.accent }]}>Cancel</Text>
-          </Pressable>
-          <Text style={[typography.heading, { color: colors.text }]}>
+          <NavBarButton label="Cancel" onPress={() => router.back()} />
+          <Text style={[typography.headline, { color: colors.text }]}>
             {initialEvent ? 'Edit event' : 'New event'}
           </Text>
-          <View style={{ width: 44 }} />
+          <NavBarButton
+            label="Save"
+            bold
+            onPress={save}
+            disabled={busy || title.trim().length === 0}
+          />
         </View>
 
         <TextField
@@ -431,41 +436,21 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
         <Text
           style={[
             typography.caption,
-            { color: colors.textMuted, marginBottom: spacing.sm },
+            { color: colors.textMuted, marginBottom: spacing.xs },
           ]}
         >
           Who can see it
         </Text>
 
-        <View style={[styles.pillRow, { marginBottom: spacing.lg }]}>
-          {(['shared', 'private'] as EventVisibility[]).map((value) => {
-            const active = visibility === value;
-            return (
-              <Pressable
-                key={value}
-                onPress={() => setVisibility(value)}
-                style={[
-                  styles.pill,
-                  {
-                    backgroundColor: active ? colors.accent : colors.surfaceMuted,
-                    borderRadius: radii.pill,
-                    paddingHorizontal: spacing.lg,
-                    paddingVertical: spacing.sm,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    typography.caption,
-                    { color: active ? colors.onAccent : colors.textMuted },
-                  ]}
-                >
-                  {value === 'shared' ? 'Both of us' : 'Only me'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <SegmentedControl
+          options={[
+            { value: 'shared', label: 'Both of us' },
+            { value: 'private', label: 'Only me' },
+          ]}
+          value={visibility}
+          onChange={setVisibility}
+          style={{ marginBottom: spacing.lg }}
+        />
 
         <Text
           style={[

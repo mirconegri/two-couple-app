@@ -78,7 +78,7 @@ export function Button({
       ) : (
         <View style={styles.row}>
           {icon ? <View style={{ marginRight: spacing.sm }}>{icon}</View> : null}
-          <Text style={[typography.bodyStrong, { color: textColor }]}>{label}</Text>
+          <Text style={[typography.headline, { color: textColor }]}>{label}</Text>
         </View>
       )}
     </Pressable>

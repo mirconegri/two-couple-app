@@ -8,6 +8,7 @@ import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
+import { NavBarButton } from '../../src/components/NavBarButton';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { supabase } from '../../src/lib/supabase';
@@ -106,14 +107,14 @@ export default function CreateSpaceScreen() {
 
     return (
       <Screen scroll>
-        <View style={{ paddingTop: spacing.xxxl }}>
-          <Text style={[typography.title, { color: colors.text }]}>
+        <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
+          <Text style={[typography.largeTitle, { color: colors.text, marginTop: spacing.lg }]}>
             Invite your partner
           </Text>
           <Text
             style={[
-              typography.body,
-              { color: colors.textMuted, marginTop: spacing.sm, marginBottom: spacing.xl },
+              typography.subheadline,
+              { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xl },
             ]}
           >
             Share this invitation code with your partner so they can join your space.
@@ -196,12 +197,20 @@ export default function CreateSpaceScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.xxxl }}>
-        <Text style={[typography.title, { color: colors.text }]}>Create the space</Text>
+      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
+        <View style={{ marginBottom: spacing.md }}>
+          <NavBarButton
+            icon="chevron-back"
+            label="Back"
+            onPress={() => router.back()}
+          />
+        </View>
+
+        <Text style={[typography.largeTitle, { color: colors.text }]}>Create the space</Text>
         <Text
           style={[
-            typography.body,
-            { color: colors.textMuted, marginTop: spacing.sm, marginBottom: spacing.xxl },
+            typography.subheadline,
+            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xxl },
           ]}
         >
           Give it a name if you like. Only the two of you will ever see it.

@@ -6,6 +6,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { Button } from '../../src/components/Button';
+import { NavBarButton } from '../../src/components/NavBarButton';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { supabase } from '../../src/lib/supabase';
@@ -41,12 +42,20 @@ export default function JoinSpaceScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.xxxl }}>
-        <Text style={[typography.title, { color: colors.text }]}>Join the space</Text>
+      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
+        <View style={{ marginBottom: spacing.md }}>
+          <NavBarButton
+            icon="chevron-back"
+            label="Back"
+            onPress={() => router.back()}
+          />
+        </View>
+
+        <Text style={[typography.largeTitle, { color: colors.text }]}>Join the space</Text>
         <Text
           style={[
-            typography.body,
-            { color: colors.textMuted, marginTop: spacing.sm, marginBottom: spacing.xxl },
+            typography.subheadline,
+            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xxl },
           ]}
         >
           Paste the invitation code your partner sent you.

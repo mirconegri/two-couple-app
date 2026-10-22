@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../src/components/Screen';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { Button } from '../../../src/components/Button';
+import { NavBarButton } from '../../../src/components/NavBarButton';
 import { useNotes } from '../../../src/hooks/useNotes';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { useSync } from '../../../src/sync/SyncProvider';
@@ -132,22 +133,12 @@ export default function NotesScreen() {
 
   return (
     <Screen scroll={false}>
-      <View style={[styles.headerRow, { paddingTop: spacing.lg, paddingBottom: spacing.md }]}>
-        <Text style={[typography.title, { color: colors.text }]}>Notes</Text>
-        <Pressable
+      <View style={[styles.headerRow, { paddingTop: spacing.md, paddingBottom: spacing.sm }]}>
+        <Text style={[typography.largeTitle, { color: colors.text }]}>Notes</Text>
+        <NavBarButton
+          icon="create-outline"
           onPress={() => router.push('/(app)/note/new')}
-          hitSlop={8}
-          accessibilityLabel="New note"
-          style={[
-            styles.addButton,
-            {
-              backgroundColor: colors.surfaceMuted,
-              borderRadius: radii.sm,
-            },
-          ]}
-        >
-          <Ionicons name="add" size={22} color={colors.accent} />
-        </Pressable>
+        />
       </View>
 
       <FlatList

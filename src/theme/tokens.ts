@@ -1,31 +1,59 @@
 export const palette = {
-  teal900: '#062B27',
-  teal800: '#0B3B36',
-  teal700: '#0F524B',
-  teal600: '#0F766E',
-  teal500: '#149C90',
-  teal300: '#5FC9BC',
-  teal100: '#D7F0EC',
+  // Apple System Colors (Light & Dark)
+  systemBlue: '#007AFF',
+  systemBlueDark: '#0A84FF',
+  systemGreen: '#34C759',
+  systemGreenDark: '#30D158',
+  systemIndigo: '#5856D6',
+  systemIndigoDark: '#5E5CE6',
+  systemOrange: '#FF9500',
+  systemOrangeDark: '#FF9F0A',
+  systemPink: '#FF2D55',
+  systemPinkDark: '#FF375F',
+  systemPurple: '#AF52DE',
+  systemPurpleDark: '#BF5AF2',
+  systemRed: '#FF3B30',
+  systemRedDark: '#FF453A',
+  systemTeal: '#5AC8FA',
+  systemTealDark: '#64D2FF',
+  systemYellow: '#FFCC00',
+  systemYellowDark: '#FFD60A',
 
-  sand50: '#FBF9F6',
-  sand100: '#F4F1EC',
-  sand200: '#E8E3DA',
+  // Apple System Grays (Light)
+  systemGray: '#8E8E93',
+  systemGray2: '#AEAEB2',
+  systemGray3: '#C7C7CC',
+  systemGray4: '#D1D1D6',
+  systemGray5: '#E5E5EA',
+  systemGray6: '#F2F2F7',
 
-  ink900: '#131615',
-  ink700: '#3A413F',
-  ink500: '#66706D',
-  ink300: '#9AA4A1',
+  // Apple System Grays (Dark)
+  systemDarkGray: '#8E8E93',
+  systemDarkGray2: '#636366',
+  systemDarkGray3: '#48484A',
+  systemDarkGray4: '#3A3A3C',
+  systemDarkGray5: '#2C2C2E',
+  systemDarkGray6: '#1C1C1E',
 
+  // Neutral
   white: '#FFFFFF',
-  black: '#0A0C0B',
+  black: '#000000',
 
-  danger: '#B42318',
-  dangerSoft: '#FEE4E2',
-  warning: '#B54708',
-  warningSoft: '#FEF0C7',
-  success: '#0E7C5A',
-  successSoft: '#D5F2E6',
-  softBlue: '#E0EAFF',
+  // Semantics
+  danger: '#FF3B30',
+  dangerSoft: '#FFE5E5',
+  warning: '#FF9500',
+  warningSoft: '#FFF3E0',
+  success: '#34C759',
+  successSoft: '#E8F5E9',
+
+  // Pastel Note Colors
+  noteYellow: '#FFF4CC',
+  noteGreen: '#D7F5DD',
+  noteBlue: '#D8ECFF',
+  notePink: '#FFE0E6',
+  notePurple: '#EAE2FD',
+  noteGray: '#EBEBF0',
 } as const;
 
 export const spacing = {
@@ -41,30 +69,45 @@ export const spacing = {
 } as const;
 
 export const radii = {
+  xs: 6,
   sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 22,
+  md: 10,
+  lg: 12,
+  xl: 16,
+  xxl: 22,
   pill: 999,
 } as const;
 
 export const notePastels: readonly string[] = [
-  palette.teal100,
-  palette.successSoft,
-  palette.warningSoft,
-  palette.dangerSoft,
-  palette.sand200,
-  palette.softBlue,
+  palette.noteYellow,
+  palette.noteGreen,
+  palette.noteBlue,
+  palette.notePink,
+  palette.notePurple,
+  palette.noteGray,
 ];
 
 export const typography = {
-  display: { fontSize: 30, lineHeight: 36, fontWeight: '700' as const, letterSpacing: -0.6 },
-  title: { fontSize: 22, lineHeight: 28, fontWeight: '700' as const, letterSpacing: -0.3 },
-  heading: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const },
-  body: { fontSize: 15, lineHeight: 21, fontWeight: '400' as const },
-  bodyStrong: { fontSize: 15, lineHeight: 21, fontWeight: '600' as const },
-  caption: { fontSize: 12.5, lineHeight: 17, fontWeight: '500' as const },
-  micro: { fontSize: 11, lineHeight: 14, fontWeight: '600' as const },
+  // Apple Typography Scale
+  largeTitle: { fontSize: 34, lineHeight: 41, fontWeight: '700' as const, letterSpacing: 0.37 },
+  title1: { fontSize: 28, lineHeight: 34, fontWeight: '700' as const, letterSpacing: 0.36 },
+  title2: { fontSize: 22, lineHeight: 28, fontWeight: '700' as const, letterSpacing: 0.35 },
+  title3: { fontSize: 20, lineHeight: 25, fontWeight: '600' as const, letterSpacing: 0.38 },
+  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const, letterSpacing: -0.41 },
+  body: { fontSize: 17, lineHeight: 22, fontWeight: '400' as const, letterSpacing: -0.41 },
+  callout: { fontSize: 16, lineHeight: 21, fontWeight: '400' as const, letterSpacing: -0.32 },
+  subheadline: { fontSize: 15, lineHeight: 20, fontWeight: '400' as const, letterSpacing: -0.24 },
+  footnote: { fontSize: 13, lineHeight: 18, fontWeight: '400' as const, letterSpacing: -0.08 },
+  caption1: { fontSize: 12, lineHeight: 16, fontWeight: '400' as const, letterSpacing: 0 },
+  caption2: { fontSize: 11, lineHeight: 13, fontWeight: '400' as const, letterSpacing: 0.07 },
+
+  // Compatibility aliases
+  display: { fontSize: 34, lineHeight: 41, fontWeight: '700' as const, letterSpacing: 0.37 },
+  title: { fontSize: 28, lineHeight: 34, fontWeight: '700' as const, letterSpacing: 0.36 },
+  heading: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const, letterSpacing: -0.41 },
+  bodyStrong: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const, letterSpacing: -0.41 },
+  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' as const, letterSpacing: -0.08 },
+  micro: { fontSize: 11, lineHeight: 13, fontWeight: '600' as const, letterSpacing: 0.07 },
 } as const;
 
 export interface ThemeColors {
@@ -90,54 +133,60 @@ export interface ThemeColors {
   success: string;
   successSoft: string;
   overlay: string;
+  groupedBackground: string;
+  separator: string;
 }
 
 export const lightColors: ThemeColors = {
-  background: palette.sand50,
-  surface: palette.white,
-  surfaceMuted: palette.sand100,
-  border: palette.sand200,
-  borderStrong: '#DAD3C7',
-  text: palette.ink900,
-  textMuted: palette.ink500,
-  textFaint: palette.ink300,
-  accent: palette.teal600,
-  accentSoft: palette.teal100,
+  background: palette.systemGray6,        // #F2F2F7 (Apple Grouped Background)
+  surface: palette.white,                 // #FFFFFF (Apple Grouped Card)
+  surfaceMuted: palette.systemGray5,      // #E5E5EA
+  border: '#C6C6C8',                      // Apple standard table separator
+  borderStrong: palette.systemGray3,      // #C7C7CC
+  text: palette.black,                    // Primary Label
+  textMuted: '#6C6C70',                   // Secondary Label
+  textFaint: palette.systemGray,          // Tertiary Label
+  accent: palette.systemBlue,             // Apple System Blue #007AFF
+  accentSoft: 'rgba(0, 122, 255, 0.12)',
   onAccent: palette.white,
-  bubbleSelf: palette.teal600,
+  bubbleSelf: palette.systemBlue,         // iMessage Blue #007AFF
   bubbleSelfText: palette.white,
-  bubbleOther: palette.white,
-  bubbleOtherText: palette.ink900,
-  danger: palette.danger,
-  dangerSoft: palette.dangerSoft,
-  warning: palette.warning,
-  warningSoft: palette.warningSoft,
-  success: palette.success,
-  successSoft: palette.successSoft,
-  overlay: 'rgba(10, 12, 11, 0.45)',
+  bubbleOther: '#E9E9EB',                 // iMessage gray
+  bubbleOtherText: palette.black,
+  danger: palette.systemRed,
+  dangerSoft: 'rgba(255, 59, 48, 0.12)',
+  warning: palette.systemOrange,
+  warningSoft: 'rgba(255, 149, 0, 0.12)',
+  success: palette.systemGreen,
+  successSoft: 'rgba(52, 199, 89, 0.12)',
+  overlay: 'rgba(0, 0, 0, 0.4)',
+  groupedBackground: palette.systemGray6,
+  separator: '#C6C6C8',
 };
 
 export const darkColors: ThemeColors = {
-  background: '#0B0F0E',
-  surface: '#141917',
-  surfaceMuted: '#1B211F',
-  border: '#232A28',
-  borderStrong: '#2E3634',
-  text: '#F3F5F4',
-  textMuted: '#A5B0AD',
-  textFaint: '#6E7A77',
-  accent: palette.teal300,
-  accentSoft: 'rgba(95, 201, 188, 0.14)',
-  onAccent: '#04211D',
-  bubbleSelf: palette.teal700,
-  bubbleSelfText: '#F3F5F4',
-  bubbleOther: '#1B211F',
-  bubbleOtherText: '#F3F5F4',
-  danger: '#F97066',
-  dangerSoft: 'rgba(249, 112, 102, 0.16)',
-  warning: '#FDB022',
-  warningSoft: 'rgba(253, 176, 34, 0.16)',
-  success: '#5FD3A8',
-  successSoft: 'rgba(95, 211, 168, 0.16)',
-  overlay: 'rgba(0, 0, 0, 0.6)',
+  background: palette.black,              // #000000 (Apple Dark Grouped Background)
+  surface: palette.systemDarkGray6,       // #1C1C1E (Apple Dark Grouped Card)
+  surfaceMuted: palette.systemDarkGray5,  // #2C2C2E
+  border: '#38383A',                      // Apple dark separator
+  borderStrong: palette.systemDarkGray3,  // #48484A
+  text: palette.white,                    // Primary Label
+  textMuted: palette.systemGray,          // Secondary Label
+  textFaint: palette.systemDarkGray2,     // Tertiary Label
+  accent: palette.systemBlueDark,         // Apple Dark System Blue #0A84FF
+  accentSoft: 'rgba(10, 132, 255, 0.18)',
+  onAccent: palette.white,
+  bubbleSelf: palette.systemBlueDark,     // iMessage Dark Blue #0A84FF
+  bubbleSelfText: palette.white,
+  bubbleOther: '#262628',                 // iMessage dark gray
+  bubbleOtherText: palette.white,
+  danger: palette.systemRedDark,
+  dangerSoft: 'rgba(255, 69, 58, 0.18)',
+  warning: palette.systemOrangeDark,
+  warningSoft: 'rgba(255, 159, 10, 0.18)',
+  success: palette.systemGreenDark,
+  successSoft: 'rgba(48, 209, 88, 0.18)',
+  overlay: 'rgba(0, 0, 0, 0.65)',
+  groupedBackground: palette.black,
+  separator: '#38383A',
 };

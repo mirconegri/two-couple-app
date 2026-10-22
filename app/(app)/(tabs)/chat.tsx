@@ -34,6 +34,7 @@ export default function ChatScreen() {
   const { userId, coupleId, members } = useAuth();
   const { notifyLocalChange, syncing } = useSync();
   const { messages, loading, loadingMore, loadOlder, retry, hasMore } = useMessages();
+  const partner = members.find((m) => m.userId !== userId);
 
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -156,9 +157,11 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}
     >
-      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg }}>
+      <View style={{ paddingTop: insets.top + spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs }}>
         <View style={styles.headerRow}>
-          <Text style={[typography.title, { color: colors.text }]}>Chat</Text>
+          <Text style={[typography.title1, { color: colors.text }]}>
+            {partner?.displayName ? partner.displayName : 'Chat'}
+          </Text>
           {syncing ? (
             <ActivityIndicator size="small" color={colors.textFaint} />
           ) : null}

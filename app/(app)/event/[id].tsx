@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../../../src/components/Screen';
-import { Card } from '../../../src/components/Card';
-import { Button } from '../../../src/components/Button';
+import { ListSection } from '../../../src/components/ListSection';
+import { ListRow } from '../../../src/components/ListRow';
+import { NavBarButton } from '../../../src/components/NavBarButton';
 import { StatusPill } from '../../../src/components/StatusPill';
 import { LoadingScreen } from '../../../src/components/LoadingScreen';
+import { Button } from '../../../src/components/Button';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useSync } from '../../../src/sync/SyncProvider';
 import { useTheme } from '../../../src/theme/ThemeProvider';
@@ -21,7 +22,7 @@ import type { CalendarEvent } from '../../../src/types';
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
-  const { colors, spacing, typography, radii } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const { userId, members } = useAuth();
   const { notifyLocalChange, lastSyncedAt } = useSync();
 
@@ -74,7 +75,7 @@ export default function EventDetailScreen() {
     return (
       <Screen>
         <View style={{ paddingTop: spacing.xxl }}>
-          <Text style={[typography.heading, { color: colors.text }]}>
+          <Text style={[typography.headline, { color: colors.text }]}>
             This event is not on this device
           </Text>
           <Text style={[typography.body, { color: colors.textMuted, marginTop: spacing.sm }]}>
@@ -98,13 +99,15 @@ export default function EventDetailScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.lg }}>
-        <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-          </Pressable>
-
-          <View style={styles.headerActions}>
+      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
+        {/* Navigation Bar */}
+        <View style={styles.navBar}>
+          <NavBarButton
+            icon="chevron-back"
+            label="Calendar"
+            onPress={() => router.back()}
+          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <StatusPill
               label={
                 event.syncStatus === 'sent'
@@ -122,68 +125,85 @@ export default function EventDetailScreen() {
               }
             />
             {canModify ? (
-              <Pressable
+              <NavBarButton
+                label="Edit"
+                bold
                 onPress={() => router.push(`/(app)/event/${event.id}/edit`)}
-                hitSlop={8}
-                accessibilityLabel="Edit event"
-              >
-                <Text style={[typography.bodyStrong, { color: colors.accent }]}>
-                  Edit
-                </Text>
-              </Pressable>
+              />
             ) : null}
           </View>
         </View>
 
-        <Text style={[typography.display, { color: colors.text, marginTop: spacing.md }]}>
+        {/* Title & Date */}
+        <Text style={[typography.largeTitle, { color: colors.text, marginTop: spacing.sm }]}>
           {event.title}
         </Text>
 
         <Text
           style={[
-            typography.body,
+            typography.subheadline,
             { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xl },
           ]}
         >
           {formatEventRange(event)}
         </Text>
 
-        <Card style={{ marginBottom: spacing.md }}>
-          <DetailRow label="Visibility" value={event.visibility === 'shared' ? 'Both of us' : 'Only me'} />
-          {event.location ? <DetailRow label="Where" value={event.location} /> : null}
+        {/* Details Section */}
+        <ListSection title="Details">
+          <ListRow
+            label="Visibility"
+            value={event.visibility === 'shared' ? 'Both of us' : 'Only me'}
+            icon="eye"
+            iconBg={colors.accent}
+          />
+          {event.location ? (
+            <ListRow
+              label="Where"
+              value={event.location}
+              icon="location"
+              iconBg="#FF9500"
+            />
+          ) : null}
           {event.reminderMinutes.length > 0 ? (
-            <DetailRow
+            <ListRow
               label="Reminder"
               value={event.reminderMinutes
                 .map((minutes) =>
                   minutes >= 1440 ? `${minutes / 1440} day before` : `${minutes} min before`,
                 )
                 .join(', ')}
+              icon="notifications"
+              iconBg="#FF3B30"
             />
           ) : null}
-          <DetailRow label="Created by" value={creatorName} />
-        </Card>
+          <ListRow
+            label="Created by"
+            value={creatorName}
+            icon="person"
+            iconBg="#5856D6"
+          />
+        </ListSection>
 
         {event.description ? (
-          <Card style={{ marginBottom: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 4 }]}>
-              Notes
-            </Text>
-            <Text style={[typography.body, { color: colors.text }]}>{event.description}</Text>
-          </Card>
+          <ListSection title="Notes">
+            <View style={{ padding: spacing.lg }}>
+              <Text style={[typography.body, { color: colors.text }]}>{event.description}</Text>
+            </View>
+          </ListSection>
         ) : null}
 
         {canModify ? (
-          <Button
-            label="Delete event"
-            variant="danger"
-            onPress={remove}
-            style={{ marginTop: spacing.lg }}
-          />
+          <ListSection>
+            <ListRow
+              label="Delete Event"
+              destructive
+              onPress={remove}
+            />
+          </ListSection>
         ) : null}
 
         {error ? (
-          <Text style={[typography.caption, { color: colors.danger, marginTop: spacing.md }]}>
+          <Text style={[typography.footnote, { color: colors.danger, marginTop: spacing.md, textAlign: 'center' }]}>
             {error}
           </Text>
         ) : null}
@@ -192,29 +212,11 @@ export default function EventDetailScreen() {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  const { colors, spacing, typography } = useTheme();
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: spacing.xs,
-      }}
-    >
-      <Text style={[typography.caption, { color: colors.textMuted }]}>{label}</Text>
-      <Text style={[typography.caption, { color: colors.text, flexShrink: 1, textAlign: 'right' }]}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  headerRow: {
+  navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 36,
   },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

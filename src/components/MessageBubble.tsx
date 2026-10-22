@@ -61,13 +61,12 @@ export function MessageBubble({
             styles.bubble,
             {
               backgroundColor: background,
-              borderRadius: radii.lg,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm + 2,
-              borderWidth: isMine ? 0 : StyleSheet.hairlineWidth,
-              borderColor: colors.border,
-              borderBottomRightRadius: isMine ? 6 : radii.lg,
-              borderBottomLeftRadius: isMine ? radii.lg : 6,
+              borderRadius: radii.xl,
+              paddingHorizontal: spacing.md + 2,
+              paddingVertical: spacing.sm + 1,
+              borderWidth: 0,
+              borderBottomRightRadius: isMine ? radii.xs : radii.xl,
+              borderBottomLeftRadius: isMine ? radii.xl : radii.xs,
             },
           ]}
         >
@@ -76,9 +75,9 @@ export function MessageBubble({
           <View style={[styles.metaRow, { marginTop: spacing.xxs }]}>
             <Text
               style={[
-                typography.micro,
+                typography.caption2,
                 {
-                  color: isMine ? 'rgba(255,255,255,0.72)' : colors.textFaint,
+                  color: isMine ? 'rgba(255,255,255,0.7)' : colors.textFaint,
                 },
               ]}
             >
@@ -89,7 +88,7 @@ export function MessageBubble({
               <Ionicons
                 name="time-outline"
                 size={11}
-                color="rgba(255,255,255,0.72)"
+                color="rgba(255,255,255,0.7)"
                 style={{ marginLeft: spacing.xs }}
               />
             ) : null}

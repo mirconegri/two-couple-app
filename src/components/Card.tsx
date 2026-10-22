@@ -19,7 +19,7 @@ export function Card({
         {
           backgroundColor: colors.surface,
           borderColor: colors.border,
-          borderRadius: radii.lg,
+          borderRadius: radii.xl,
           padding: spacing.lg,
         },
         style,

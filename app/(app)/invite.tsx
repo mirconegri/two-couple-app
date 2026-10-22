@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../src/components/Screen';
 import { Card } from '../../src/components/Card';
 import { Button } from '../../src/components/Button';
+import { NavBarButton } from '../../src/components/NavBarButton';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { supabase } from '../../src/lib/supabase';
@@ -141,16 +142,23 @@ export default function InviteScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.lg }}>
+      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
         <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </Pressable>
-          <Text style={[typography.heading, { color: colors.text }]}>
-            Invite your partner
-          </Text>
-          <View style={{ width: 24 }} />
+          <NavBarButton
+            icon="chevron-back"
+            label="Back"
+            onPress={() => router.back()}
+          />
         </View>
+
+        <Text
+          style={[
+            typography.largeTitle,
+            { color: colors.text, marginTop: spacing.xs, marginBottom: spacing.sm },
+          ]}
+        >
+          Invite Your Partner
+        </Text>
 
         {isComplete ? (
           <Card style={{ marginTop: spacing.xl, paddingVertical: spacing.xl }}>

@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from './Screen';
 import { Button } from './Button';
+import { NavBarButton } from './NavBarButton';
+import { SegmentedControl } from './SegmentedControl';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useTheme } from '../theme/ThemeProvider';
@@ -206,29 +208,16 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
     <Screen scroll>
       <View style={{ paddingTop: spacing.lg }}>
         <View style={styles.headerRow}>
-          <Pressable onPress={handleBack} hitSlop={8}>
-            <Text style={[typography.body, { color: colors.accent }]}>Cancel</Text>
-          </Pressable>
-          <Text style={[typography.heading, { color: colors.text }]}>
+          <NavBarButton label="Cancel" onPress={handleBack} />
+          <Text style={[typography.headline, { color: colors.text }]}>
             {initialNote ? 'Edit note' : 'New note'}
           </Text>
-          <Pressable
+          <NavBarButton
+            label="Save"
+            bold
             onPress={handleSave}
             disabled={busy || title.trim().length === 0}
-            hitSlop={8}
-          >
-            <Text
-              style={[
-                typography.bodyStrong,
-                {
-                  color:
-                    title.trim().length === 0 ? colors.textFaint : colors.accent,
-                },
-              ]}
-            >
-              Save
-            </Text>
-          </Pressable>
+          />
         </View>
 
         {/* Color bar preview if set */}
@@ -249,58 +238,22 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
           placeholderTextColor={colors.textFaint}
           maxLength={200}
           style={[
-            typography.title,
+            typography.largeTitle,
             styles.titleInput,
             { color: colors.text, borderBottomColor: colors.border },
           ]}
         />
 
         {/* Segmented Control */}
-        <View
-          style={[
-            styles.segmentContainer,
-            { backgroundColor: colors.surfaceMuted, borderRadius: radii.md },
+        <SegmentedControl
+          options={[
+            { value: 'text', label: 'Text' },
+            { value: 'checklist', label: 'Checklist' },
           ]}
-        >
-          <Pressable
-            onPress={() => setKind('text')}
-            style={[
-              styles.segmentButton,
-              kind === 'text' && {
-                backgroundColor: colors.surface,
-                borderRadius: radii.sm,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                typography.caption,
-                { color: kind === 'text' ? colors.text : colors.textMuted },
-              ]}
-            >
-              Text
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setKind('checklist')}
-            style={[
-              styles.segmentButton,
-              kind === 'checklist' && {
-                backgroundColor: colors.surface,
-                borderRadius: radii.sm,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                typography.caption,
-                { color: kind === 'checklist' ? colors.text : colors.textMuted },
-              ]}
-            >
-              Checklist
-            </Text>
-          </Pressable>
-        </View>
+          value={kind}
+          onChange={setKind}
+          style={{ marginBottom: spacing.lg }}
+        />
 
         {/* Text Mode */}
         {kind === 'text' ? (
