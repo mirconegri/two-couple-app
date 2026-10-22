@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { format } from 'date-fns';
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 
 import { Screen } from './Screen';
 import { TextField } from './TextField';
@@ -29,9 +40,21 @@ interface EventEditorProps {
   defaultDate?: string;
 }
 
+function parseTimeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map((part) => Number.parseInt(part, 10));
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+function timeStringToDate(timeStr: string, baseDate: Date): Date {
+  const [h, m] = timeStr.split(':').map((part) => Number.parseInt(part, 10));
+  const d = new Date(baseDate);
+  d.setHours(h ?? 0, m ?? 0, 0, 0);
+  return d;
+}
+
 export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
   const db = useSQLiteContext();
-  const { colors, spacing, typography, radii } = useTheme();
+  const { colors, spacing, typography, radii, scheme } = useTheme();
   const { coupleId, userId } = useAuth();
   const { notifyLocalChange } = useSync();
 
@@ -71,8 +94,65 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
   const [reminders, setReminders] = useState<number[]>(
     initialEvent?.reminderMinutes ?? [],
   );
+
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const currentDate = useMemo(() => {
+    const d = parseDateKey(dateKey);
+    return Number.isNaN(d.getTime()) ? new Date() : d;
+  }, [dateKey]);
+
+  const onDateChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (event.type === 'set' && selected) {
+      setDateKey(toDateKey(selected));
+    }
+  };
+
+  const onStartTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowStartTimePicker(false);
+    }
+    if (event.type === 'set' && selected) {
+      const newStartTime = format(selected, 'HH:mm');
+      setStartTime(newStartTime);
+
+      const startMins = parseTimeToMinutes(newStartTime);
+      const endMins = parseTimeToMinutes(endTime);
+
+      if (startMins >= endMins) {
+        const bumped = new Date(selected);
+        bumped.setHours(selected.getHours() + 1);
+        setEndTime(format(bumped, 'HH:mm'));
+      }
+    }
+  };
+
+  const onEndTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowEndTimePicker(false);
+    }
+    if (event.type === 'set' && selected) {
+      const newEndTime = format(selected, 'HH:mm');
+      const startMins = parseTimeToMinutes(startTime);
+      const endMins = parseTimeToMinutes(newEndTime);
+
+      if (endMins <= startMins) {
+        const startDate = timeStringToDate(startTime, currentDate);
+        startDate.setHours(startDate.getHours() + 1);
+        setEndTime(format(startDate, 'HH:mm'));
+      } else {
+        setEndTime(newEndTime);
+      }
+    }
+  };
 
   const save = async () => {
     if (!coupleId || !userId) return;
@@ -170,14 +250,53 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
           maxLength={200}
         />
 
-        <TextField
-          label="Date"
-          value={dateKey}
-          onChangeText={setDateKey}
-          placeholder="YYYY-MM-DD"
-          autoCapitalize="none"
-          hint="Calendar date — never shifts with time zones."
-        />
+        {/* Date picker row */}
+        <View style={{ marginBottom: spacing.lg }}>
+          <Text
+            style={[
+              typography.caption,
+              { color: colors.textMuted, marginBottom: spacing.xs },
+            ]}
+          >
+            Date
+          </Text>
+          <Pressable
+            onPress={() => {
+              setShowDatePicker((prev) => !prev);
+              setShowStartTimePicker(false);
+              setShowEndTimePicker(false);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Select date"
+            style={[
+              styles.pickerRow,
+              {
+                backgroundColor: colors.surface,
+                borderColor: showDatePicker ? colors.accent : colors.border,
+                borderRadius: radii.md,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.md,
+              },
+            ]}
+          >
+            <Text style={[typography.body, { color: colors.text, flex: 1 }]}>
+              {format(currentDate, 'EEEE, d MMMM yyyy')}
+            </Text>
+            <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+          </Pressable>
+
+          {showDatePicker ? (
+            <View style={Platform.OS === 'ios' ? { marginTop: spacing.sm } : undefined}>
+              <DateTimePicker
+                value={currentDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                themeVariant={scheme}
+                onChange={onDateChange}
+              />
+            </View>
+          ) : null}
+        </View>
 
         <View style={[styles.switchRow, { marginBottom: spacing.lg }]}>
           <Text style={[typography.body, { color: colors.text }]}>All day</Text>
@@ -185,23 +304,107 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
         </View>
 
         {!allDay ? (
-          <View style={styles.timeRow}>
+          <View style={[styles.timeRow, { marginBottom: spacing.lg }]}>
             <View style={{ flex: 1 }}>
-              <TextField
-                label="Start (HH:MM)"
-                value={startTime}
-                onChangeText={setStartTime}
-                autoCapitalize="none"
-              />
+              <Text
+                style={[
+                  typography.caption,
+                  { color: colors.textMuted, marginBottom: spacing.xs },
+                ]}
+              >
+                Start
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setShowStartTimePicker((prev) => !prev);
+                  setShowEndTimePicker(false);
+                  setShowDatePicker(false);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Select start time"
+                style={[
+                  styles.pickerRow,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: showStartTimePicker ? colors.accent : colors.border,
+                    borderRadius: radii.md,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.md,
+                  },
+                ]}
+              >
+                <Text style={[typography.body, { color: colors.text, flex: 1 }]}>
+                  {startTime}
+                </Text>
+                <Ionicons name="time-outline" size={18} color={colors.textMuted} />
+              </Pressable>
+
+              {showStartTimePicker ? (
+                <View
+                  style={Platform.OS === 'ios' ? { marginTop: spacing.sm } : undefined}
+                >
+                  <DateTimePicker
+                    value={timeStringToDate(startTime, currentDate)}
+                    mode="time"
+                    is24Hour
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    themeVariant={scheme}
+                    onChange={onStartTimeChange}
+                  />
+                </View>
+              ) : null}
             </View>
+
             <View style={{ width: spacing.md }} />
+
             <View style={{ flex: 1 }}>
-              <TextField
-                label="End (HH:MM)"
-                value={endTime}
-                onChangeText={setEndTime}
-                autoCapitalize="none"
-              />
+              <Text
+                style={[
+                  typography.caption,
+                  { color: colors.textMuted, marginBottom: spacing.xs },
+                ]}
+              >
+                End
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setShowEndTimePicker((prev) => !prev);
+                  setShowStartTimePicker(false);
+                  setShowDatePicker(false);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Select end time"
+                style={[
+                  styles.pickerRow,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: showEndTimePicker ? colors.accent : colors.border,
+                    borderRadius: radii.md,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.md,
+                  },
+                ]}
+              >
+                <Text style={[typography.body, { color: colors.text, flex: 1 }]}>
+                  {endTime}
+                </Text>
+                <Ionicons name="time-outline" size={18} color={colors.textMuted} />
+              </Pressable>
+
+              {showEndTimePicker ? (
+                <View
+                  style={Platform.OS === 'ios' ? { marginTop: spacing.sm } : undefined}
+                >
+                  <DateTimePicker
+                    value={timeStringToDate(endTime, currentDate)}
+                    mode="time"
+                    is24Hour
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    themeVariant={scheme}
+                    onChange={onEndTimeChange}
+                  />
+                </View>
+              ) : null}
             </View>
           </View>
         ) : null}
@@ -329,6 +532,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   switchRow: {
     flexDirection: 'row',
