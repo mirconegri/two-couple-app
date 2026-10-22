@@ -92,6 +92,7 @@ export default function EventDetailScreen() {
   }
 
   const isMine = event.createdBy === userId;
+  const canModify = !event.deletedAt && (isMine || event.visibility === 'shared');
   const creator = members.find((m) => m.userId === event.createdBy);
   const creatorName = isMine ? 'You' : (creator?.displayName || 'Your partner');
 
@@ -120,6 +121,17 @@ export default function EventDetailScreen() {
                     : 'danger'
               }
             />
+            {canModify ? (
+              <Pressable
+                onPress={() => router.push(`/(app)/event/${event.id}/edit`)}
+                hitSlop={8}
+                accessibilityLabel="Edit event"
+              >
+                <Text style={[typography.bodyStrong, { color: colors.accent }]}>
+                  Edit
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
 
@@ -161,12 +173,14 @@ export default function EventDetailScreen() {
           </Card>
         ) : null}
 
-        <Button
-          label="Delete event"
-          variant="danger"
-          onPress={remove}
-          style={{ marginTop: spacing.lg }}
-        />
+        {canModify ? (
+          <Button
+            label="Delete event"
+            variant="danger"
+            onPress={remove}
+            style={{ marginTop: spacing.lg }}
+          />
+        ) : null}
 
         {error ? (
           <Text style={[typography.caption, { color: colors.danger, marginTop: spacing.md }]}>

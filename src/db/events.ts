@@ -93,6 +93,12 @@ export async function enqueueEvent(
   const now = new Date().toISOString();
 
   await db.withExclusiveTransactionAsync(async (txn) => {
+    const existing = await txn.getFirstAsync<{ created_by: string }>(
+      'select created_by from events where id = ?',
+      event.id,
+    );
+    const createdBy = existing ? existing.created_by : event.createdBy;
+
     await txn.runAsync(
       `insert into events
          (id, couple_id, created_by, title, description, location,
@@ -117,7 +123,7 @@ export async function enqueueEvent(
          sync_status      = 'pending'`,
       event.id,
       event.coupleId,
-      event.createdBy,
+      createdBy,
       event.title,
       event.description,
       event.location,

@@ -50,6 +50,7 @@ export default function AppLayout() {
       <Stack.Screen name="profile" options={{ headerShown: false }} />
       <Stack.Screen name="note/new" options={{ headerShown: false }} />
       <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="event/[id]/edit" options={{ headerShown: false }} />
     </Stack>
   );
 }
