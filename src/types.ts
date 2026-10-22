@@ -61,3 +61,26 @@ export interface EventDraft {
   color: string | null;
   reminderMinutes: number[];
 }
+
+export type NoteKind = 'text' | 'checklist';
+
+export interface NoteChecklistItem {
+  id: string;
+  text: string;
+  checked: boolean;
+}
+
+export interface Note {
+  id: string;
+  coupleId: string;
+  createdBy: string;
+  title: string;
+  kind: NoteKind;
+  body: string | null;
+  checklist: NoteChecklistItem[] | null;
+  color: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  syncStatus: SyncStatus;
+}

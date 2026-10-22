@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
-import type { CalendarEvent, EventVisibility, Member, Message } from '../types';
+import type { CalendarEvent, EventVisibility, Member, Message, Note, NoteChecklistItem, NoteKind } from '../types';
 import type { PushEventPayload } from '../db/events';
+import type { PushNotePayload } from '../db/notes';
 
 /**
  * The network boundary of the sync engine.
@@ -14,9 +15,11 @@ export interface RemotePort {
   }): Promise<{ serverCreatedAt: string | null }>;
 
   pushEvent(input: PushEventPayload & { deletedAt: string | null }): Promise<void>;
+  pushNote(input: PushNotePayload): Promise<void>;
 
   fetchMessagesSince(coupleId: string, since: string | null): Promise<Message[]>;
   fetchEventsSince(coupleId: string, since: string | null): Promise<CalendarEvent[]>;
+  fetchNotesSince(coupleId: string, since: string | null): Promise<Note[]>;
   fetchMembers(coupleId: string): Promise<Member[]>;
 }
 
@@ -91,6 +94,37 @@ export function mapEventDto(dto: EventDto): CalendarEvent {
   };
 }
 
+interface NoteDto {
+  id: string;
+  couple_id: string;
+  created_by: string;
+  title: string;
+  kind: string;
+  body: string | null;
+  checklist: unknown;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export function mapNoteDto(dto: NoteDto): Note {
+  return {
+    id: dto.id,
+    coupleId: dto.couple_id,
+    createdBy: dto.created_by,
+    title: dto.title,
+    kind: dto.kind as NoteKind,
+    body: dto.body,
+    checklist: Array.isArray(dto.checklist) ? (dto.checklist as NoteChecklistItem[]) : null,
+    color: dto.color,
+    createdAt: dto.created_at,
+    updatedAt: dto.updated_at,
+    deletedAt: dto.deleted_at,
+    syncStatus: 'sent',
+  };
+}
+
 const PAGE_SIZE = 200;
 
 export const supabaseRemote: RemotePort = {
@@ -123,6 +157,20 @@ export const supabaseRemote: RemotePort = {
       p_category: input.category,
       p_color: input.color,
       p_reminder_minutes: input.reminderMinutes,
+      p_deleted_at: input.deletedAt,
+    });
+
+    if (error) throw new Error(error.message);
+  },
+
+  async pushNote(input) {
+    const { error } = await supabase.rpc('push_note', {
+      p_id: input.id,
+      p_title: input.title,
+      p_kind: input.kind,
+      p_body: input.body,
+      p_checklist: input.checklist,
+      p_color: input.color,
       p_deleted_at: input.deletedAt,
     });
 
@@ -167,6 +215,25 @@ export const supabaseRemote: RemotePort = {
 
     const rows = (data ?? []) as unknown as EventDto[];
     return rows.map(mapEventDto);
+  },
+
+  async fetchNotesSince(coupleId, since) {
+    let query = supabase
+      .from('notes')
+      .select(
+        'id, couple_id, created_by, title, kind, body, checklist, color, created_at, updated_at, deleted_at',
+      )
+      .eq('couple_id', coupleId)
+      .order('updated_at', { ascending: true })
+      .limit(PAGE_SIZE);
+
+    if (since) query = query.gt('updated_at', since);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []) as unknown as NoteDto[];
+    return rows.map(mapNoteDto);
   },
 
   async fetchMembers(coupleId) {

@@ -91,4 +91,23 @@ export const MIGRATIONS: readonly string[] = [
     value text
   );
   `,
+  `
+  create table if not exists notes (
+    id          text primary key,
+    couple_id   text not null,
+    created_by  text not null,
+    title       text not null,
+    kind        text not null,
+    body        text,
+    checklist   text,
+    color       text,
+    created_at  text not null,
+    updated_at  text not null,
+    deleted_at  text,
+    sync_status text not null default 'pending'
+  );
+
+  create index if not exists notes_couple_updated_idx
+    on notes (couple_id, updated_at desc);
+  `,
 ];

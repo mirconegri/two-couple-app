@@ -9,11 +9,16 @@ import {
   markEventSent,
 } from '../db/events';
 import {
+  applyRemoteNote,
+  markNoteSent,
+} from '../db/notes';
+import {
   claimDueEntries,
   deleteOutboxEntry,
   scheduleRetry,
 } from '../db/outbox';
 import type { PushEventPayload } from '../db/events';
+import type { PushNotePayload } from '../db/notes';
 import { newestTimestamp } from './merge';
 import { nextAttemptAt, MAX_ATTEMPTS_BEFORE_FAILED } from './backoff';
 import { errorMessage } from '../utils/errors';
@@ -24,6 +29,7 @@ export interface SyncResult {
   pushFailures: number;
   pulledMessages: number;
   pulledEvents: number;
+  pulledNotes: number;
   pulledMembers: number;
   error: string | null;
 }
@@ -33,6 +39,7 @@ const EMPTY_RESULT: SyncResult = {
   pushFailures: 0,
   pulledMessages: 0,
   pulledEvents: 0,
+  pulledNotes: 0,
   pulledMembers: 0,
   error: null,
 };
@@ -109,6 +116,16 @@ export async function drainOutbox(
         continue;
       }
 
+      if (entry.entity === 'note') {
+        const payload = JSON.parse(entry.payload) as PushNotePayload;
+
+        await remote.pushNote(payload);
+        await markNoteSent(db, payload.id);
+        await deleteOutboxEntry(db, entry.id);
+        pushed += 1;
+        continue;
+      }
+
       // Unknown entity type: drop it rather than blocking the queue forever.
       await deleteOutboxEntry(db, entry.id);
     } catch (error) {
@@ -143,16 +160,18 @@ export async function pullChanges(
   db: AppDatabase,
   remote: RemotePort,
   coupleId: string,
-): Promise<{ messages: number; events: number; error: string | null }> {
+): Promise<{ messages: number; events: number; notes: number; error: string | null }> {
   try {
-    const [messageCursor, eventCursor] = await Promise.all([
+    const [messageCursor, eventCursor, noteCursor] = await Promise.all([
       getSyncCursor(db, 'messages'),
       getSyncCursor(db, 'events'),
+      getSyncCursor(db, 'notes'),
     ]);
 
-    const [messages, events] = await Promise.all([
+    const [messages, events, notes] = await Promise.all([
       remote.fetchMessagesSince(coupleId, messageCursor),
       remote.fetchEventsSince(coupleId, eventCursor),
+      remote.fetchNotesSince(coupleId, noteCursor),
     ]);
 
     await db.withExclusiveTransactionAsync(async () => {
@@ -161,6 +180,9 @@ export async function pullChanges(
       }
       for (const event of events) {
         await applyRemoteEvent(db, event);
+      }
+      for (const note of notes) {
+        await applyRemoteNote(db, note);
       }
     });
 
@@ -174,10 +196,15 @@ export async function pullChanges(
       'events',
       newestTimestamp(events.map((e) => e.updatedAt), eventCursor),
     );
+    await setSyncCursor(
+      db,
+      'notes',
+      newestTimestamp(notes.map((n) => n.updatedAt), noteCursor),
+    );
 
-    return { messages: messages.length, events: events.length, error: null };
+    return { messages: messages.length, events: events.length, notes: notes.length, error: null };
   } catch (error) {
-    return { messages: 0, events: 0, error: errorMessage(error) };
+    return { messages: 0, events: 0, notes: 0, error: errorMessage(error) };
   }
 }
 
@@ -238,6 +265,7 @@ export async function runSyncCycle(
     pushFailures: push.failures,
     pulledMessages: pull.messages,
     pulledEvents: pull.events,
+    pulledNotes: pull.notes,
     pulledMembers: members.members,
     error: push.error ?? pull.error ?? members.error,
   };

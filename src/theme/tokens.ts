@@ -25,6 +25,7 @@ export const palette = {
   warningSoft: '#FEF0C7',
   success: '#0E7C5A',
   successSoft: '#D5F2E6',
+  softBlue: '#E0EAFF',
 } as const;
 
 export const spacing = {
@@ -46,6 +47,15 @@ export const radii = {
   xl: 22,
   pill: 999,
 } as const;
+
+export const notePastels: readonly string[] = [
+  palette.teal100,
+  palette.successSoft,
+  palette.warningSoft,
+  palette.dangerSoft,
+  palette.sand200,
+  palette.softBlue,
+];
 
 export const typography = {
   display: { fontSize: 30, lineHeight: 36, fontWeight: '700' as const, letterSpacing: -0.6 },

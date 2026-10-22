@@ -117,6 +117,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = subscribeToCouple(coupleId, {
       onMessagesChanged: () => void syncNow(),
       onEventsChanged: () => void syncNow(),
+      onNotesChanged: () => void syncNow(),
       onMembersChanged: () => void syncNow(),
       onStatus: (status) => setRealtimeStatus(status),
     });
