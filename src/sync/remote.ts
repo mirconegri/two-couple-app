@@ -21,6 +21,8 @@ export interface RemotePort {
   fetchEventsSince(coupleId: string, since: string | null): Promise<CalendarEvent[]>;
   fetchNotesSince(coupleId: string, since: string | null): Promise<Note[]>;
   fetchMembers(coupleId: string): Promise<Member[]>;
+  markMessagesDelivered(until?: string): Promise<void>;
+  markMessagesRead(until?: string): Promise<void>;
 }
 
 interface MessageDto {
@@ -30,6 +32,8 @@ interface MessageDto {
   body: string;
   client_created_at: string;
   server_created_at: string;
+  delivered_at: string | null;
+  read_at: string | null;
   updated_at: string;
   deleted_at: string | null;
 }
@@ -63,6 +67,8 @@ export function mapMessageDto(dto: MessageDto): Message {
     body: dto.body,
     clientCreatedAt: dto.client_created_at,
     serverCreatedAt: dto.server_created_at,
+    deliveredAt: dto.delivered_at ?? null,
+    readAt: dto.read_at ?? null,
     updatedAt: dto.updated_at,
     deletedAt: dto.deleted_at,
     syncStatus: 'sent',
@@ -181,7 +187,7 @@ export const supabaseRemote: RemotePort = {
     let query = supabase
       .from('messages')
       .select(
-        'id, couple_id, sender_id, body, client_created_at, server_created_at, updated_at, deleted_at',
+        'id, couple_id, sender_id, body, client_created_at, server_created_at, delivered_at, read_at, updated_at, deleted_at',
       )
       .eq('couple_id', coupleId)
       .order('updated_at', { ascending: true })
@@ -269,5 +275,25 @@ export const supabaseRemote: RemotePort = {
       coupleId: row.couple_id,
       joinedAt: row.joined_at,
     }));
+  },
+
+  async markMessagesDelivered(until) {
+    try {
+      await supabase.rpc('mark_messages_delivered', {
+        p_until: until ?? new Date().toISOString(),
+      });
+    } catch {
+      // Best effort
+    }
+  },
+
+  async markMessagesRead(until) {
+    try {
+      await supabase.rpc('mark_messages_read', {
+        p_until: until ?? new Date().toISOString(),
+      });
+    } catch {
+      // Best effort
+    }
   },
 };

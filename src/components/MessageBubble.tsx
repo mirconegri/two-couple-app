@@ -106,12 +106,24 @@ export function MessageBubble({
             ) : null}
 
             {isMine && !pending && !failed ? (
-              <Ionicons
-                name="checkmark"
-                size={12}
-                color="rgba(255,255,255,0.72)"
-                style={{ marginLeft: spacing.xs }}
-              />
+              message.readAt ? (
+                <View style={styles.checksRow}>
+                  <Ionicons name="checkmark" size={13} color="#53BDEB" />
+                  <Ionicons name="checkmark" size={13} color="#53BDEB" style={{ marginLeft: -8 }} />
+                </View>
+              ) : message.deliveredAt ? (
+                <View style={styles.checksRow}>
+                  <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.7)" />
+                  <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.7)" style={{ marginLeft: -8 }} />
+                </View>
+              ) : (
+                <Ionicons
+                  name="checkmark"
+                  size={13}
+                  color="rgba(255,255,255,0.7)"
+                  style={{ marginLeft: spacing.xs }}
+                />
+              )
             ) : null}
           </View>
         </View>
@@ -137,4 +149,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
   bubble: { flexShrink: 1 },
   metaRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end' },
+  checksRow: { flexDirection: 'row', alignItems: 'center' },
 });

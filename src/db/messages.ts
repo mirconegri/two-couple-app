@@ -8,6 +8,8 @@ interface MessageRow {
   body: string;
   client_created_at: string;
   server_created_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
   updated_at: string;
   deleted_at: string | null;
   sync_status: string;
@@ -15,7 +17,7 @@ interface MessageRow {
 }
 
 const COLUMNS = `id, couple_id, sender_id, body, client_created_at,
-  server_created_at, updated_at, deleted_at, sync_status, failure_reason`;
+  server_created_at, delivered_at, read_at, updated_at, deleted_at, sync_status, failure_reason`;
 
 export function mapMessageRow(row: MessageRow): Message {
   return {
@@ -25,6 +27,8 @@ export function mapMessageRow(row: MessageRow): Message {
     body: row.body,
     clientCreatedAt: row.client_created_at,
     serverCreatedAt: row.server_created_at,
+    deliveredAt: row.delivered_at,
+    readAt: row.read_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     syncStatus: row.sync_status as SyncStatus,
@@ -83,8 +87,8 @@ export async function enqueueMessage(db: AppDatabase, message: Message): Promise
     await txn.runAsync(
       `insert into messages
          (id, couple_id, sender_id, body, client_created_at,
-          server_created_at, updated_at, deleted_at, sync_status, failure_reason)
-       values (?, ?, ?, ?, ?, null, ?, null, 'pending', null)
+          server_created_at, delivered_at, read_at, updated_at, deleted_at, sync_status, failure_reason)
+       values (?, ?, ?, ?, ?, null, null, null, ?, null, 'pending', null)
        on conflict (id) do update set
          body           = excluded.body,
          sync_status    = 'pending',
@@ -194,11 +198,13 @@ export async function applyRemoteMessage(
   await db.runAsync(
     `insert into messages
        (id, couple_id, sender_id, body, client_created_at,
-        server_created_at, updated_at, deleted_at, sync_status, failure_reason)
-     values (?, ?, ?, ?, ?, ?, ?, ?, 'sent', null)
+        server_created_at, delivered_at, read_at, updated_at, deleted_at, sync_status, failure_reason)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'sent', null)
      on conflict (id) do update set
        body              = excluded.body,
        server_created_at = excluded.server_created_at,
+       delivered_at      = coalesce(excluded.delivered_at, messages.delivered_at),
+       read_at           = coalesce(excluded.read_at, messages.read_at),
        updated_at        = excluded.updated_at,
        deleted_at        = excluded.deleted_at,
        sync_status       = case
@@ -211,8 +217,54 @@ export async function applyRemoteMessage(
     message.body,
     message.clientCreatedAt,
     message.serverCreatedAt,
+    message.deliveredAt,
+    message.readAt,
     message.updatedAt,
     message.deletedAt,
+  );
+}
+
+export async function markLocalMessagesDelivered(
+  db: AppDatabase,
+  coupleId: string,
+  myUserId: string,
+  until: string = new Date().toISOString(),
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.runAsync(
+    `update messages
+        set delivered_at = coalesce(delivered_at, ?)
+      where couple_id = ?
+        and sender_id <> ?
+        and delivered_at is null
+        and client_created_at <= ?`,
+    now,
+    coupleId,
+    myUserId,
+    until,
+  );
+}
+
+export async function markLocalMessagesRead(
+  db: AppDatabase,
+  coupleId: string,
+  myUserId: string,
+  until: string = new Date().toISOString(),
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.runAsync(
+    `update messages
+        set read_at = coalesce(read_at, ?),
+            delivered_at = coalesce(delivered_at, ?)
+      where couple_id = ?
+        and sender_id <> ?
+        and read_at is null
+        and client_created_at <= ?`,
+    now,
+    now,
+    coupleId,
+    myUserId,
+    until,
   );
 }
 
@@ -223,7 +275,7 @@ export async function countUnread(
 ): Promise<number> {
   const row = await db.getFirstAsync<{ count: number }>(
     `select count(*) as count from messages
-      where couple_id = ? and sender_id <> ? and deleted_at is null`,
+      where couple_id = ? and sender_id <> ? and read_at is null and deleted_at is null`,
     coupleId,
     selfUserId,
   );

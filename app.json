@@ -8,6 +8,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "icon": "./assets/icon.png",
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#0F766E"
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -45,6 +49,7 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/notification-icon.png",
           "color": "#0F766E",
           "defaultChannel": "messages"
         }

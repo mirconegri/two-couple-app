@@ -110,4 +110,8 @@ export const MIGRATIONS: readonly string[] = [
   create index if not exists notes_couple_updated_idx
     on notes (couple_id, updated_at desc);
   `,
+  `
+  alter table messages add column delivered_at text;
+  alter table messages add column read_at text;
+  `,
 ];

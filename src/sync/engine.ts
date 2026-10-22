@@ -186,6 +186,10 @@ export async function pullChanges(
       }
     });
 
+    if (messages.length > 0) {
+      void remote.markMessagesDelivered();
+    }
+
     await setSyncCursor(
       db,
       'messages',

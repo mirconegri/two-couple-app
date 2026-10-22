@@ -9,6 +9,8 @@ export interface Message {
   body: string;
   clientCreatedAt: string;
   serverCreatedAt: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
   updatedAt: string;
   deletedAt: string | null;
   syncStatus: SyncStatus;

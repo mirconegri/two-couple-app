@@ -20,7 +20,8 @@ import { EmptyState } from '../../../src/components/EmptyState';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useSync } from '../../../src/sync/SyncProvider';
 import { useMessages } from '../../../src/hooks/useMessages';
-import { enqueueMessage } from '../../../src/db/messages';
+import { enqueueMessage, markLocalMessagesRead } from '../../../src/db/messages';
+import { supabaseRemote } from '../../../src/sync/remote';
 import { newId } from '../../../src/lib/id';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { messageDayLabel } from '../../../src/utils/date';
@@ -63,6 +64,16 @@ export default function ChatScreen() {
     };
   }, []);
 
+  // Mark incoming messages as read when viewing the chat.
+  useEffect(() => {
+    if (!coupleId || !userId) return;
+    const hasUnread = messages.some((m) => m.senderId !== userId && !m.readAt);
+    if (hasUnread) {
+      void markLocalMessagesRead(db, coupleId, userId);
+      void supabaseRemote.markMessagesRead();
+    }
+  }, [coupleId, db, messages, userId]);
+
   const send = useCallback(async () => {
     const body = draft.trim();
     if (!body || !coupleId || !userId) return;
@@ -78,6 +89,8 @@ export default function ChatScreen() {
         body,
         clientCreatedAt: new Date().toISOString(),
         serverCreatedAt: null,
+        deliveredAt: null,
+        readAt: null,
         updatedAt: new Date().toISOString(),
         deletedAt: null,
         syncStatus: 'pending',
