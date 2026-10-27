@@ -7,13 +7,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 
-void SplashScreen.preventAutoHideAsync();
-
 import { DATABASE_NAME, initDatabase } from '../src/db';
 import { AuthProvider } from '../src/auth/AuthProvider';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { SyncProvider } from '../src/sync/SyncProvider';
 import { configureNotificationChannels } from '../src/notifications/reminders';
+
+// Keep the splash screen visible while theme preferences and resources are loaded
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Ensure Android notification channels exist before any notification is scheduled.
 void configureNotificationChannels();

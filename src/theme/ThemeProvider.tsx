@@ -42,15 +42,19 @@ const ThemeContext = createContext<Theme | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState<ThemePrefs>(DEFAULT_PREFS);
+  const [isReady, setIsReady] = useState(false);
   const systemScheme = useColorScheme();
 
   useEffect(() => {
     let isMounted = true;
 
-    // Safety timeout: ensure splash screen hides even if storage is slow or hangs
+    // Safety timeout: ensure splash screen hides if storage hangs or is blocked
     const safetyTimer = setTimeout(() => {
+      console.warn(
+        '[ThemeProvider] Theme preferences load timed out after 3000ms, hiding splash screen.',
+      );
       void SplashScreen.hideAsync().catch(() => {});
-    }, 1500);
+    }, 3000);
 
     AsyncStorage.getItem(PREFS_STORAGE_KEY)
       .then((raw) => {
@@ -78,7 +82,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       .finally(() => {
         clearTimeout(safetyTimer);
         if (isMounted) {
-          void SplashScreen.hideAsync().catch(() => {});
+          setIsReady(true);
         }
       });
 
@@ -87,6 +91,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(safetyTimer);
     };
   }, []);
+
+  // Hide the native splash screen only AFTER the resolved theme state has been committed
+  useEffect(() => {
+    if (isReady) {
+      void SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isReady]);
 
   const updatePrefs = useCallback((partial: Partial<ThemePrefs>) => {
     setPrefs((prev) => {
