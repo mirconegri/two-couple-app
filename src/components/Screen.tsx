@@ -6,6 +6,7 @@ import {
   type RefreshControlProps,
   type ViewStyle,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/ThemeProvider';
@@ -17,6 +18,7 @@ interface ScreenProps {
   refreshControl?: React.ReactElement<RefreshControlProps>;
   contentStyle?: ViewStyle;
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
+  scrollRef?: React.RefObject<any>;
 }
 
 export function Screen({
@@ -26,6 +28,7 @@ export function Screen({
   refreshControl,
   contentStyle,
   edges = ['top'],
+  scrollRef,
 }: ScreenProps) {
   const { colors, spacing } = useTheme();
 
@@ -47,13 +50,15 @@ export function Screen({
       edges={edges}
     >
       {scroll ? (
-        <ScrollView
+        <Animated.ScrollView
+          ref={scrollRef}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: spacing.xxl }}
           keyboardShouldPersistTaps="handled"
           refreshControl={refreshControl}
+          scrollEventThrottle={16}
         >
           {body}
-        </ScrollView>
+        </Animated.ScrollView>
       ) : (
         body
       )}

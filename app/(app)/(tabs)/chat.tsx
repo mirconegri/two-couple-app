@@ -5,18 +5,28 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  interpolateColor,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { MessageBubble } from '../../../src/components/MessageBubble';
 import { EmptyState } from '../../../src/components/EmptyState';
+import { PressableScale } from '../../../src/components/PressableScale';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useSync } from '../../../src/sync/SyncProvider';
 import { useMessages } from '../../../src/hooks/useMessages';
@@ -26,7 +36,72 @@ import { newId } from '../../../src/lib/id';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { messageDayLabel } from '../../../src/utils/date';
 import { errorMessage } from '../../../src/utils/errors';
+import { duration, easing } from '../../../src/theme/motion';
 import type { Message } from '../../../src/types';
+
+function ChatLoadingShimmer() {
+  const { colors, radii, spacing } = useTheme();
+  const opacity = useSharedValue(0.4);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (!reducedMotion) {
+      opacity.value = withRepeat(
+        withTiming(0.8, { duration: 800 }),
+        -1,
+        true,
+      );
+    }
+  }, [reducedMotion, opacity]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <View style={[styles.fill, { backgroundColor: colors.background, padding: spacing.lg, justifyContent: 'flex-end' }]}>
+      <Animated.View
+        style={[
+          {
+            width: '60%',
+            height: 48,
+            borderRadius: radii.xl,
+            backgroundColor: colors.surfaceMuted,
+            marginBottom: spacing.md,
+            alignSelf: 'flex-start',
+          },
+          animStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            width: '72%',
+            height: 64,
+            borderRadius: radii.xl,
+            backgroundColor: colors.surfaceMuted,
+            marginBottom: spacing.md,
+            alignSelf: 'flex-end',
+          },
+          animStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            width: '45%',
+            height: 44,
+            borderRadius: radii.xl,
+            backgroundColor: colors.surfaceMuted,
+            marginBottom: spacing.md,
+            alignSelf: 'flex-start',
+          },
+          animStyle,
+        ]}
+      />
+    </View>
+  );
+}
 
 export default function ChatScreen() {
   const db = useSQLiteContext();
@@ -42,19 +117,66 @@ export default function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
+  const reducedMotion = useReducedMotion();
+  const seenMessageIds = useRef<Set<string>>(new Set());
+  const initialPopulated = useRef(false);
+
+  const isDraftValid = draft.trim().length > 0;
+  const sendBtnProgress = useSharedValue(isDraftValid ? 1 : 0);
+  const composerTranslateY = useSharedValue(0);
+
+  useEffect(() => {
+    sendBtnProgress.value = withTiming(isDraftValid ? 1 : 0, {
+      duration: duration.fast,
+    });
+  }, [isDraftValid, sendBtnProgress]);
+
+  const sendBtnBgStyle = useAnimatedStyle(() => {
+    const bg = interpolateColor(
+      sendBtnProgress.value,
+      [0, 1],
+      [colors.surfaceMuted, colors.accent],
+    );
+    return { backgroundColor: bg };
+  });
+
+  const composerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: composerTranslateY.value }],
+  }));
+
+  useEffect(() => {
+    if (messages.length > 0 && !initialPopulated.current) {
+      for (const m of messages) {
+        seenMessageIds.current.add(m.id);
+      }
+      initialPopulated.current = true;
+    }
+  }, [messages]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => {
+      (e) => {
         setKeyboardVisible(true);
         listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        if (Platform.OS === 'ios' && !reducedMotion && e?.endCoordinates?.height) {
+          composerTranslateY.value = withTiming(-e.endCoordinates.height, {
+            duration: 250,
+            easing: easing.standard,
+          });
+        }
       },
     );
     const hideSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
+        if (Platform.OS === 'ios' && !reducedMotion) {
+          composerTranslateY.value = withTiming(0, {
+            duration: 250,
+            easing: easing.standard,
+          });
+        }
       },
     );
 
@@ -62,7 +184,7 @@ export default function ChatScreen() {
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
+  }, [composerTranslateY, reducedMotion]);
 
   // Mark incoming messages as read when viewing the chat.
   useEffect(() => {
@@ -127,7 +249,18 @@ export default function ChatScreen() {
       const partnerName = partner?.displayName || 'Partner';
       const senderName = isMine ? myName : partnerName;
 
-      return (
+      const isNew = !seenMessageIds.current.has(item.id);
+      if (isNew) {
+        seenMessageIds.current.add(item.id);
+      }
+
+      const entering = isNew
+        ? reducedMotion
+          ? FadeIn.duration(duration.fast)
+          : FadeInDown.springify().damping(18)
+        : undefined;
+
+      const content = (
         <View>
           <MessageBubble
             message={item}
@@ -152,22 +285,23 @@ export default function ChatScreen() {
           ) : null}
         </View>
       );
+
+      if (entering) {
+        return <Animated.View entering={entering}>{content}</Animated.View>;
+      }
+      return content;
     },
-    [colors.textFaint, members, messages, retry, spacing.md, typography.micro, userId],
+    [colors.textFaint, members, messages, reducedMotion, retry, spacing.md, typography.micro, userId],
   );
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
+    return <ChatLoadingShimmer />;
   }
 
   return (
     <KeyboardAvoidingView
       style={[styles.fill, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? undefined : 'height'}
       keyboardVerticalOffset={0}
     >
       <View style={{ paddingTop: insets.top + spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs }}>
@@ -226,7 +360,7 @@ export default function ChatScreen() {
         </Text>
       ) : null}
 
-      <View
+      <Animated.View
         style={[
           styles.composer,
           {
@@ -236,6 +370,7 @@ export default function ChatScreen() {
             paddingHorizontal: spacing.md,
             paddingTop: spacing.sm,
           },
+          Platform.OS === 'ios' ? composerAnimatedStyle : undefined,
         ]}
       >
         <TextInput
@@ -258,19 +393,19 @@ export default function ChatScreen() {
           ]}
         />
 
-        <Pressable
+        <PressableScale
           onPress={send}
           disabled={sending || draft.trim().length === 0}
           accessibilityRole="button"
           accessibilityLabel="Send message"
-          style={({ pressed }) => [
+          haptics="light"
+          scaleTo={0.92}
+          style={[
             styles.sendButton,
             {
-              backgroundColor:
-                draft.trim().length === 0 ? colors.surfaceMuted : colors.accent,
               borderRadius: radii.pill,
-              opacity: pressed ? 0.85 : 1,
             },
+            sendBtnBgStyle,
           ]}
         >
           <Ionicons
@@ -278,8 +413,8 @@ export default function ChatScreen() {
             size={20}
             color={draft.trim().length === 0 ? colors.textFaint : colors.onAccent}
           />
-        </Pressable>
-      </View>
+        </PressableScale>
+      </Animated.View>
     </KeyboardAvoidingView>
   );
 }

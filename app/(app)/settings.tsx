@@ -3,15 +3,19 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Notifications from 'expo-notifications';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../../src/components/Screen';
 import { ListSection } from '../../src/components/ListSection';
 import { ListRow } from '../../src/components/ListRow';
 import { StatusPill } from '../../src/components/StatusPill';
 import { NavBarButton } from '../../src/components/NavBarButton';
+import { SegmentedControl } from '../../src/components/SegmentedControl';
+import { PressableScale } from '../../src/components/PressableScale';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useSync } from '../../src/sync/SyncProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { accents, accentKeys } from '../../src/theme/preferences';
 import { clearLocalData, getMeta } from '../../src/db';
 import { unregisterPushToken } from '../../src/notifications/push';
 import { ensureNotificationPermission } from '../../src/notifications/reminders';
@@ -19,7 +23,7 @@ import { errorMessage } from '../../src/utils/errors';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, typography, scheme, prefs, updatePrefs } = useTheme();
   const { email, userId, coupleId, members, signOut, refreshCouple } = useAuth();
   const { pendingCount, realtimeStatus, lastSyncedAt, syncing, syncNow } = useSync();
 
@@ -164,6 +168,62 @@ export default function SettingsScreen() {
           ) : null}
         </ListSection>
 
+        {/* Appearance Section */}
+        <ListSection title="Aspetto">
+          <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
+            <SegmentedControl
+              options={[
+                { value: 'auto', label: 'Auto' },
+                { value: 'light', label: 'Chiaro' },
+                { value: 'dark', label: 'Scuro' },
+              ]}
+              value={prefs.mode}
+              onChange={(mode) => updatePrefs({ mode })}
+            />
+          </View>
+          <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
+            <Text
+              style={[
+                typography.subheadline,
+                { color: colors.textMuted, marginBottom: spacing.sm },
+              ]}
+            >
+              Colore accento
+            </Text>
+            <View style={styles.swatchRow}>
+              {accentKeys.map((key) => {
+                const isSelected = prefs.accent === key;
+                const accentDef = accents[key];
+                const swatchBg = scheme === 'dark' ? accentDef.dark : accentDef.light;
+
+                return (
+                  <PressableScale
+                    key={key}
+                    onPress={() => updatePrefs({ accent: key })}
+                    haptics="selection"
+                    scaleTo={0.92}
+                    accessibilityRole="button"
+                    accessibilityLabel={accentDef.label}
+                    accessibilityState={{ selected: isSelected }}
+                    style={[
+                      styles.accentSwatch,
+                      {
+                        backgroundColor: swatchBg,
+                        borderColor: isSelected ? colors.text : colors.border,
+                        borderWidth: isSelected ? 2 : 1,
+                      },
+                    ]}
+                  >
+                    {isSelected ? (
+                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                    ) : null}
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </View>
+        </ListSection>
+
         {/* Sync Section */}
         <ListSection title="Sync & Storage">
           <ListRow
@@ -261,5 +321,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  accentSwatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

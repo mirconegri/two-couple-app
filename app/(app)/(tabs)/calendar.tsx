@@ -1,25 +1,30 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { format, isSameDay, isSameMonth, startOfMonth } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeIn, Keyframe, useReducedMotion } from 'react-native-reanimated';
 
 import { Screen } from '../../../src/components/Screen';
 import { MonthGrid } from '../../../src/components/MonthGrid';
 import { EventRow } from '../../../src/components/EventRow';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { Button } from '../../../src/components/Button';
+import { PressableScale } from '../../../src/components/PressableScale';
 import { useEvents } from '../../../src/hooks/useEvents';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { eventDateKey, shiftMonth, toDateKey } from '../../../src/utils/date';
+import { duration } from '../../../src/theme/motion';
 import type { CalendarEvent } from '../../../src/types';
 
 export default function CalendarScreen() {
   const { colors, spacing, typography, radii } = useTheme();
   const { events } = useEvents();
+  const reducedMotion = useReducedMotion();
 
   const [anchor, setAnchor] = useState(() => startOfMonth(new Date()));
   const [selected, setSelected] = useState(() => new Date());
+  const [direction, setDirection] = useState<-1 | 1>(1);
 
   const selectedKey = toDateKey(selected);
 
@@ -40,6 +45,21 @@ export default function CalendarScreen() {
     setSelected(today);
   };
 
+  const monthTransition = useMemo(() => {
+    if (reducedMotion) return FadeIn.duration(duration.fast);
+    const startX = direction > 0 ? 24 : -24;
+    return new Keyframe({
+      0: {
+        transform: [{ translateX: startX }],
+        opacity: 0,
+      },
+      100: {
+        transform: [{ translateX: 0 }],
+        opacity: 1,
+      },
+    }).duration(duration.base);
+  }, [direction, reducedMotion]);
+
   return (
     <Screen scroll>
       <View style={{ paddingTop: spacing.lg }}>
@@ -49,39 +69,57 @@ export default function CalendarScreen() {
           </Text>
 
           <View style={styles.headerActions}>
-            <Pressable
-              onPress={() => setAnchor((current) => shiftMonth(current, -1))}
+            <PressableScale
+              onPress={() => {
+                setDirection(-1);
+                setAnchor((current) => shiftMonth(current, -1));
+              }}
               hitSlop={8}
               accessibilityLabel="Previous month"
+              haptics="selection"
               style={[styles.navButton, { backgroundColor: colors.surfaceMuted, borderRadius: radii.sm }]}
             >
               <Ionicons name="chevron-back" size={18} color={colors.text} />
-            </Pressable>
+            </PressableScale>
 
-            <Pressable
-              onPress={() => setAnchor((current) => shiftMonth(current, 1))}
+            <PressableScale
+              onPress={() => {
+                setDirection(1);
+                setAnchor((current) => shiftMonth(current, 1));
+              }}
               hitSlop={8}
               accessibilityLabel="Next month"
+              haptics="selection"
               style={[styles.navButton, { backgroundColor: colors.surfaceMuted, borderRadius: radii.sm }]}
             >
               <Ionicons name="chevron-forward" size={18} color={colors.text} />
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
 
-        <Pressable onPress={goToToday} hitSlop={8} style={{ marginBottom: spacing.md }}>
+        <PressableScale
+          onPress={goToToday}
+          hitSlop={8}
+          haptics="selection"
+          style={{ marginBottom: spacing.md, alignSelf: 'flex-start' }}
+        >
           <Text style={[typography.caption, { color: colors.accent }]}>Today</Text>
-        </Pressable>
+        </PressableScale>
 
-        <MonthGrid
-          anchor={anchor}
-          selected={selected}
-          events={monthEvents}
-          onSelectDate={(date) => {
-            setSelected(date);
-            if (!isSameMonth(date, anchor)) setAnchor(startOfMonth(date));
-          }}
-        />
+        <Animated.View key={anchor.toISOString()} entering={monthTransition}>
+          <MonthGrid
+            anchor={anchor}
+            selected={selected}
+            events={monthEvents}
+            onSelectDate={(date) => {
+              setSelected(date);
+              if (!isSameMonth(date, anchor)) {
+                setDirection(date > anchor ? 1 : -1);
+                setAnchor(startOfMonth(date));
+              }
+            }}
+          />
+        </Animated.View>
 
         <View style={{ marginTop: spacing.xl }}>
           <View style={styles.sectionRow}>

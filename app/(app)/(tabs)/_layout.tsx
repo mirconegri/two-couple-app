@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../../../src/theme/ThemeProvider';
+import { PressableScale } from '../../../src/components/PressableScale';
 
 export default function TabsLayout() {
   const { colors, typography } = useTheme();
@@ -11,6 +12,14 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: 'shift',
+        tabBarButton: ({ ref, ...props }) => (
+          <PressableScale
+            {...props}
+            scaleTo={0.92}
+            haptics="selection"
+          />
+        ),
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: {

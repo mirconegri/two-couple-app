@@ -1,11 +1,22 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  FadeIn,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { isSameDay, isToday } from 'date-fns';
 
 import { buildMonthGrid, toDateKey, WEEKDAY_LABELS } from '../utils/date';
 import { useTheme } from '../theme/ThemeProvider';
 import type { CalendarEvent } from '../types';
 import { eventDateKey } from '../utils/date';
+import { PressableScale } from './PressableScale';
+import { duration, spring } from '../theme/motion';
 
 interface MonthGridProps {
   anchor: Date;
@@ -14,8 +25,111 @@ interface MonthGridProps {
   onSelectDate: (date: Date) => void;
 }
 
-export function MonthGrid({ anchor, selected, events, onSelectDate }: MonthGridProps) {
+function DayCell({
+  cellDate,
+  inMonth,
+  isSelected,
+  today,
+  dayEvents,
+  onPress,
+}: {
+  cellDate: Date;
+  inMonth: boolean;
+  isSelected: boolean;
+  today: boolean;
+  dayEvents: CalendarEvent[];
+  onPress: () => void;
+}) {
   const { colors, radii, spacing, typography } = useTheme();
+  const scale = useSharedValue(1);
+  const todayPulse = useSharedValue(1);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (isSelected && !reducedMotion) {
+      scale.value = withSequence(
+        withSpring(1.14, spring.pop),
+        withSpring(1, spring.pop),
+      );
+    }
+  }, [isSelected, reducedMotion, scale]);
+
+  useEffect(() => {
+    if (today && !isSelected && !reducedMotion) {
+      todayPulse.value = withSequence(
+        withTiming(1.12, { duration: 350 }),
+        withTiming(1, { duration: 350 }),
+      );
+    }
+  }, [today, isSelected, reducedMotion, todayPulse]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const currentScale = isSelected ? scale.value : (today && !isSelected ? todayPulse.value : 1);
+    return {
+      transform: [{ scale: currentScale }],
+    };
+  });
+
+  return (
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${cellDate.toDateString()}, ${dayEvents.length} events`}
+      haptics="selection"
+      scaleTo={0.92}
+      style={[styles.cell, { padding: spacing.xxs }]}
+    >
+      <Animated.View
+        style={[
+          styles.cellInner,
+          {
+            borderRadius: radii.md,
+            backgroundColor: isSelected ? colors.accent : 'transparent',
+            borderWidth: today && !isSelected ? StyleSheet.hairlineWidth : 0,
+            borderColor: colors.accent,
+          },
+          animatedStyle,
+        ]}
+      >
+        <Text
+          style={[
+            typography.caption,
+            {
+              color: isSelected
+                ? colors.onAccent
+                : inMonth
+                  ? colors.text
+                  : colors.textFaint,
+              fontWeight: today ? '700' : '500',
+            },
+          ]}
+        >
+          {cellDate.getDate()}
+        </Text>
+
+        <View style={styles.dotRow}>
+          {dayEvents.slice(0, 3).map((event, index) => (
+            <Animated.View
+              key={event.id}
+              entering={FadeIn.delay(index * 20).duration(duration.fast)}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: isSelected
+                    ? 'rgba(255,255,255,0.85)'
+                    : event.color ?? colors.accent,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </Animated.View>
+    </PressableScale>
+  );
+}
+
+export function MonthGrid({ anchor, selected, events, onSelectDate }: MonthGridProps) {
+  const { colors, typography } = useTheme();
 
   const cells = buildMonthGrid(anchor);
 
@@ -47,57 +161,15 @@ export function MonthGrid({ anchor, selected, events, onSelectDate }: MonthGridP
           const today = isToday(cell.date);
 
           return (
-            <Pressable
+            <DayCell
               key={cell.key}
+              cellDate={cell.date}
+              inMonth={cell.inMonth}
+              isSelected={isSelected}
+              today={today}
+              dayEvents={dayEvents}
               onPress={() => onSelectDate(cell.date)}
-              accessibilityRole="button"
-              accessibilityLabel={`${cell.date.toDateString()}, ${dayEvents.length} events`}
-              style={[styles.cell, { padding: spacing.xxs }]}
-            >
-              <View
-                style={[
-                  styles.cellInner,
-                  {
-                    borderRadius: radii.md,
-                    backgroundColor: isSelected ? colors.accent : 'transparent',
-                    borderWidth: today && !isSelected ? StyleSheet.hairlineWidth : 0,
-                    borderColor: colors.accent,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    typography.caption,
-                    {
-                      color: isSelected
-                        ? colors.onAccent
-                        : cell.inMonth
-                          ? colors.text
-                          : colors.textFaint,
-                      fontWeight: today ? '700' : '500',
-                    },
-                  ]}
-                >
-                  {cell.date.getDate()}
-                </Text>
-
-                <View style={styles.dotRow}>
-                  {dayEvents.slice(0, 3).map((event) => (
-                    <View
-                      key={event.id}
-                      style={[
-                        styles.dot,
-                        {
-                          backgroundColor: isSelected
-                            ? 'rgba(255,255,255,0.85)'
-                            : event.color ?? colors.accent,
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-              </View>
-            </Pressable>
+            />
           );
         })}
       </View>

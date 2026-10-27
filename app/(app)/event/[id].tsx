@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import * as Haptics from 'expo-haptics';
 
 import { Screen } from '../../../src/components/Screen';
 import { ListSection } from '../../../src/components/ListSection';
@@ -44,6 +45,7 @@ export default function EventDetailScreen() {
   const remove = () => {
     if (!event) return;
 
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
     Alert.alert(
       'Delete this event?',
       'It will be removed from both phones. This cannot be undone.',
@@ -155,6 +157,24 @@ export default function EventDetailScreen() {
             value={event.visibility === 'shared' ? 'Both of us' : 'Only me'}
             icon="eye"
             iconBg={colors.accent}
+          />
+          <ListRow
+            label="Color"
+            value={event.color ? undefined : 'Default (follows theme)'}
+            icon="color-palette"
+            iconBg={event.color ?? colors.accent}
+            rightAction={
+              event.color ? (
+                <View
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: 7,
+                    backgroundColor: event.color,
+                  }}
+                />
+              ) : undefined
+            }
           />
           {event.location ? (
             <ListRow

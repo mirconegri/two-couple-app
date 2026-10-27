@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  LayoutAnimation,
   Platform,
   Pressable,
   ScrollView,
@@ -10,6 +9,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, {
+  LinearTransition,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +26,7 @@ import { Screen } from './Screen';
 import { Button } from './Button';
 import { NavBarButton } from './NavBarButton';
 import { SegmentedControl } from './SegmentedControl';
+import { PressableScale } from './PressableScale';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useTheme } from '../theme/ThemeProvider';
@@ -25,10 +34,51 @@ import { enqueueNote, enqueueNoteDeletion } from '../db/notes';
 import { notePastels, palette } from '../theme/tokens';
 import { newId } from '../lib/id';
 import { errorMessage } from '../utils/errors';
+import { spring } from '../theme/motion';
 import type { Note, NoteChecklistItem, NoteKind } from '../types';
 
 interface NoteEditorProps {
   initialNote?: Note | null;
+}
+
+function CheckItemCheckbox({
+  checked,
+  color,
+  onPress,
+}: {
+  checked: boolean;
+  color: string;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const reducedMotion = useReducedMotion();
+
+  const handlePress = () => {
+    if (!reducedMotion) {
+      scale.value = withSequence(
+        withSpring(1.15, spring.pop),
+        withSpring(1, spring.pop),
+      );
+    }
+    void Haptics.selectionAsync();
+    onPress();
+  };
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable onPress={handlePress} hitSlop={8} style={styles.checkboxTouch}>
+      <Animated.View style={animStyle}>
+        <Ionicons
+          name={checked ? 'checkbox' : 'square-outline'}
+          size={22}
+          color={color}
+        />
+      </Animated.View>
+    </Pressable>
+  );
 }
 
 export function NoteEditor({ initialNote }: NoteEditorProps) {
@@ -107,6 +157,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
 
       await enqueueNote(db, note);
       notifyLocalChange();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -132,6 +183,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
 
   const handleDelete = () => {
     if (!initialNote) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
     Alert.alert('Delete note', 'Are you sure you want to delete this note?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -177,27 +229,14 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
   };
 
   const toggleItemChecked = (id: string) => {
-    let nextChecked = false;
-    setChecklist((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          nextChecked = !item.checked;
-          return { ...item, checked: nextChecked };
-        }
-        return item;
-      }),
-    );
-
-    if (nextChecked) {
-      setTimeout(() => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setChecklist((prev) => {
-          const unchecked = prev.filter((i) => !i.checked);
-          const checked = prev.filter((i) => i.checked);
-          return [...unchecked, ...checked];
-        });
-      }, 300);
-    }
+    setChecklist((prev) => {
+      const updated = prev.map((item) =>
+        item.id === id ? { ...item, checked: !item.checked } : item,
+      );
+      const unchecked = updated.filter((i) => !i.checked);
+      const checked = updated.filter((i) => i.checked);
+      return [...unchecked, ...checked];
+    });
   };
 
   const removeItem = (id: string) => {
@@ -273,18 +312,16 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
           /* Checklist Mode */
           <View style={{ marginTop: spacing.md }}>
             {checklist.map((item) => (
-              <View key={item.id} style={styles.checkRow}>
-                <Pressable
+              <Animated.View
+                key={item.id}
+                layout={LinearTransition.springify().damping(spring.layout.damping).stiffness(spring.layout.stiffness)}
+                style={styles.checkRow}
+              >
+                <CheckItemCheckbox
+                  checked={item.checked}
+                  color={item.checked ? colors.accent : colors.textMuted}
                   onPress={() => toggleItemChecked(item.id)}
-                  hitSlop={8}
-                  style={styles.checkboxTouch}
-                >
-                  <Ionicons
-                    name={item.checked ? 'checkbox' : 'square-outline'}
-                    size={22}
-                    color={item.checked ? colors.accent : colors.textMuted}
-                  />
-                </Pressable>
+                />
                 <TextInput
                   ref={(ref) => {
                     itemInputRefs.current[item.id] = ref;
@@ -310,11 +347,13 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
                 >
                   <Ionicons name="close" size={18} color={colors.textFaint} />
                 </Pressable>
-              </View>
+              </Animated.View>
             ))}
 
-            <Pressable
+            <PressableScale
               onPress={() => addItem()}
+              haptics="selection"
+              scaleTo={0.96}
               style={[styles.addItemRow, { marginTop: spacing.sm }]}
             >
               <Ionicons name="add" size={20} color={colors.accent} />
@@ -326,7 +365,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
               >
                 Add item
               </Text>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
 
@@ -344,9 +383,11 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
             {[null, ...notePastels].map((swatch) => {
               const isSelected = selectedColor === swatch;
               return (
-                <Pressable
+                <PressableScale
                   key={swatch ?? 'none'}
                   onPress={() => setSelectedColor(swatch)}
+                  haptics="selection"
+                  scaleTo={0.9}
                   style={[
                     styles.swatch,
                     {
@@ -361,7 +402,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
                   ) : isSelected ? (
                     <Ionicons name="checkmark" size={16} color={colors.text} />
                   ) : null}
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>

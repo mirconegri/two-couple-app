@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../theme/ThemeProvider';
+import { PressableScale } from './PressableScale';
 
 interface ListRowProps {
   label: string;
@@ -97,17 +98,16 @@ export function ListRow({
   }
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [
-        {
-          backgroundColor: pressed ? colors.surfaceMuted : 'transparent',
-        },
-      ]}
+      scaleTo={0.98}
+      haptics="selection"
+      accessibilityRole="button"
+      accessibilityLabel={label}
     >
       {content}
-    </Pressable>
+    </PressableScale>
   );
 }
 

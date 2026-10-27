@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import * as Haptics from 'expo-haptics';
 
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
@@ -32,6 +33,7 @@ export default function ProfileScreen() {
       if (rpcError) throw new Error(rpcError.message);
 
       await refreshCouple(db);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (caught) {
       setError(errorMessage(caught));

@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { AccessibilityInfo } from 'react-native';
 import { Redirect, Stack } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
@@ -11,6 +12,13 @@ import { LoadingScreen } from '../../src/components/LoadingScreen';
 export default function AppLayout() {
   const { ready, session, coupleId, userId } = useAuth();
   const db = useSQLiteContext();
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!coupleId || !userId) return;
@@ -40,15 +48,59 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/(auth)/sign-in" />;
   if (!coupleId) return <Redirect href="/(onboarding)/start" />;
 
+  const modalOptions = {
+    presentation: 'modal' as const,
+    sheetAllowedDetents: [0.9, 1.0] as [number, number],
+    sheetGrabberVisible: true,
+    animation: reduceMotion ? ('fade' as const) : undefined,
+    animationDuration: reduceMotion ? 150 : undefined,
+  };
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: reduceMotion ? 'fade' : 'slide_from_right',
+        animationDuration: reduceMotion ? 150 : 350,
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
+        animationMatchesGesture: true,
+        gestureDirection: 'horizontal',
+      }}
+    >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="invite" options={{ headerShown: false }} />
-      <Stack.Screen name="profile" options={{ headerShown: false }} />
-      <Stack.Screen name="note/new" options={{ headerShown: false }} />
-      <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="event/[id]/edit" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="event/new" options={modalOptions} />
+      <Stack.Screen
+        name="event/[id]"
+        options={{
+          animation: reduceMotion ? 'fade' : 'slide_from_right',
+          animationDuration: reduceMotion ? 150 : 350,
+        }}
+      />
+      <Stack.Screen name="event/[id]/edit" options={modalOptions} />
+      <Stack.Screen name="note/new" options={modalOptions} />
+      <Stack.Screen name="note/[id]" options={modalOptions} />
+      <Stack.Screen
+        name="invite"
+        options={{
+          ...modalOptions,
+          sheetAllowedDetents: [0.75, 1.0],
+        }}
+      />
+      <Stack.Screen
+        name="profile"
+        options={{
+          ...modalOptions,
+          sheetAllowedDetents: [0.6, 1.0],
+        }}
+      />
+      <Stack.Screen
+        name="settings"
+        options={{
+          ...modalOptions,
+          sheetAllowedDetents: [0.85, 1.0],
+        }}
+      />
     </Stack>
   );
 }

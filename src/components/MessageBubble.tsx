@@ -1,10 +1,23 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { Message } from '../types';
 import { useTheme } from '../theme/ThemeProvider';
+import { PressableScale } from './PressableScale';
+import { spring } from '../theme/motion';
 
 interface MessageBubbleProps {
   message: Message;
@@ -12,6 +25,90 @@ interface MessageBubbleProps {
   showSenderName: boolean;
   senderName: string;
   onRetry: (id: string) => void;
+}
+
+function PendingClock() {
+  const opacity = useSharedValue(1);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (!reducedMotion) {
+      opacity.value = withRepeat(
+        withSequence(
+          withTiming(0.4, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      );
+    }
+    return () => cancelAnimation(opacity);
+  }, [opacity, reducedMotion]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={[{ marginLeft: 4 }, animatedStyle]}>
+      <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.7)" />
+    </Animated.View>
+  );
+}
+
+function ReceiptChecks({
+  readAt,
+  deliveredAt,
+}: {
+  readAt: string | null;
+  deliveredAt: string | null;
+}) {
+  const isRead = Boolean(readAt);
+  const isDelivered = Boolean(deliveredAt);
+  const wasDeliveredRef = useRef(isDelivered && !isRead);
+  const scale = useSharedValue(1);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (isRead && wasDeliveredRef.current && !reducedMotion) {
+      scale.value = withSequence(
+        withSpring(1.2, spring.pop),
+        withSpring(1, spring.pop),
+      );
+      wasDeliveredRef.current = false;
+    }
+  }, [isRead, reducedMotion, scale]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  if (isRead) {
+    return (
+      <Animated.View style={[styles.checksRow, animStyle]}>
+        <Ionicons name="checkmark" size={13} color="#53BDEB" />
+        <Ionicons name="checkmark" size={13} color="#53BDEB" style={{ marginLeft: -8 }} />
+      </Animated.View>
+    );
+  }
+
+  if (isDelivered) {
+    return (
+      <View style={styles.checksRow}>
+        <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.7)" />
+        <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.7)" style={{ marginLeft: -8 }} />
+      </View>
+    );
+  }
+
+  return (
+    <Ionicons
+      name="checkmark"
+      size={13}
+      color="rgba(255,255,255,0.7)"
+      style={{ marginLeft: 4 }}
+    />
+  );
 }
 
 export function MessageBubble({
@@ -84,52 +181,33 @@ export function MessageBubble({
               {time}
             </Text>
 
-            {isMine && pending ? (
-              <Ionicons
-                name="time-outline"
-                size={11}
-                color="rgba(255,255,255,0.7)"
-                style={{ marginLeft: spacing.xs }}
-              />
-            ) : null}
+            {isMine && pending ? <PendingClock /> : null}
 
             {isMine && failed ? (
-              <Pressable
+              <PressableScale
                 accessibilityRole="button"
                 accessibilityLabel="Retry sending"
                 onPress={() => onRetry(message.id)}
                 hitSlop={8}
+                scaleTo={0.9}
                 style={{ marginLeft: spacing.xs }}
               >
                 <Ionicons name="alert-circle" size={12} color={colors.danger} />
-              </Pressable>
+              </PressableScale>
             ) : null}
 
             {isMine && !pending && !failed ? (
-              message.readAt ? (
-                <View style={styles.checksRow}>
-                  <Ionicons name="checkmark" size={13} color="#53BDEB" />
-                  <Ionicons name="checkmark" size={13} color="#53BDEB" style={{ marginLeft: -8 }} />
-                </View>
-              ) : message.deliveredAt ? (
-                <View style={styles.checksRow}>
-                  <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.7)" />
-                  <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.7)" style={{ marginLeft: -8 }} />
-                </View>
-              ) : (
-                <Ionicons
-                  name="checkmark"
-                  size={13}
-                  color="rgba(255,255,255,0.7)"
-                  style={{ marginLeft: spacing.xs }}
-                />
-              )
+              <ReceiptChecks readAt={message.readAt} deliveredAt={message.deliveredAt} />
             ) : null}
           </View>
         </View>
 
         {failed ? (
-          <Pressable onPress={() => onRetry(message.id)} hitSlop={8}>
+          <PressableScale
+            onPress={() => onRetry(message.id)}
+            hitSlop={8}
+            scaleTo={0.96}
+          >
             <Text
               style={[
                 typography.micro,
@@ -138,7 +216,7 @@ export function MessageBubble({
             >
               Not sent · tap to retry
             </Text>
-          </Pressable>
+          </PressableScale>
         ) : null}
       </View>
     </View>

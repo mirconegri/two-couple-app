@@ -1,10 +1,11 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { CalendarEvent } from '../types';
 import { formatEventRange } from '../utils/date';
 import { useTheme } from '../theme/ThemeProvider';
+import { PressableScale } from './PressableScale';
 
 interface EventRowProps {
   event: CalendarEvent;
@@ -16,14 +17,15 @@ export function EventRow({ event, onPress, creatorLabel }: EventRowProps) {
   const { colors, radii, spacing, typography } = useTheme();
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => onPress(event)}
       accessibilityRole="button"
       accessibilityLabel={`${event.title}, ${formatEventRange(event)}`}
-      style={({ pressed }) => [
+      scaleTo={0.98}
+      haptics="selection"
+      style={[
         styles.row,
         {
-          backgroundColor: pressed ? colors.surfaceMuted : 'transparent',
           borderRadius: radii.md,
           paddingVertical: spacing.sm + 2,
           paddingHorizontal: spacing.sm,
@@ -59,7 +61,7 @@ export function EventRow({ event, onPress, creatorLabel }: EventRowProps) {
       ) : creatorLabel ? (
         <Text style={[typography.micro, { color: colors.textFaint }]}>{creatorLabel}</Text>
       ) : null}
-    </Pressable>
+    </PressableScale>
   );
 }
 

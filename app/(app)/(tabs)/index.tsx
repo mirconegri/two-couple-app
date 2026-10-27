@@ -1,8 +1,18 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { addDays, format, isAfter, isBefore } from 'date-fns';
+import Animated, {
+  Extrapolation,
+  FadeIn,
+  FadeInUp,
+  interpolate,
+  useAnimatedRef,
+  useAnimatedStyle,
+  useReducedMotion,
+  useScrollViewOffset,
+} from 'react-native-reanimated';
 
 import { Screen } from '../../../src/components/Screen';
 import { Card } from '../../../src/components/Card';
@@ -10,17 +20,20 @@ import { EventRow } from '../../../src/components/EventRow';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { Button } from '../../../src/components/Button';
 import { NavBarButton } from '../../../src/components/NavBarButton';
+import { PressableScale } from '../../../src/components/PressableScale';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useEvents } from '../../../src/hooks/useEvents';
 import { useSync } from '../../../src/sync/SyncProvider';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { formatEventRange } from '../../../src/utils/date';
+import { duration } from '../../../src/theme/motion';
 
 export default function HomeScreen() {
   const { colors, spacing, typography, radii } = useTheme();
   const { members, userId } = useAuth();
   const { events } = useEvents();
   const { pendingCount, syncing, lastSyncedAt } = useSync();
+  const reducedMotion = useReducedMotion();
 
   const partner = members.find((member) => member.userId !== userId);
   const me = members.find((member) => member.userId === userId);
@@ -50,169 +63,239 @@ export default function HomeScreen() {
 
   const nextEvent = upcoming[0];
   const todayLabel = format(new Date(), 'EEEE, d MMMM');
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollViewOffset(scrollRef);
+
+  const headerParallaxStyle = useAnimatedStyle(() => {
+    if (reducedMotion) return {};
+    const translateY = interpolate(
+      scrollOffset.value,
+      [0, 80],
+      [0, 10],
+      Extrapolation.CLAMP,
+    );
+    const opacity = interpolate(
+      scrollOffset.value,
+      [0, 80],
+      [1, 0.6],
+      Extrapolation.CLAMP,
+    );
+    return {
+      transform: [{ translateY }],
+      opacity,
+    };
+  });
+
+  const collapsingTitleStyle = useAnimatedStyle(() => {
+    if (reducedMotion) return {};
+    const scale = interpolate(
+      scrollOffset.value,
+      [0, 90],
+      [1, 0.88],
+      Extrapolation.CLAMP,
+    );
+    const translateY = interpolate(
+      scrollOffset.value,
+      [0, 90],
+      [0, -12],
+      Extrapolation.CLAMP,
+    );
+    const opacity = interpolate(
+      scrollOffset.value,
+      [0, 100],
+      [1, 0.3],
+      Extrapolation.CLAMP,
+    );
+    return {
+      transform: [{ translateY }, { scale }],
+      opacity,
+    };
+  });
+
+  const getEntrance = (index: number) => {
+    const delayMs = index * 60;
+    if (reducedMotion) {
+      return FadeIn.duration(duration.fast).delay(delayMs);
+    }
+    return FadeInUp.duration(duration.base).delay(delayMs);
+  };
 
   return (
-    <Screen scroll>
+    <Screen scroll scrollRef={scrollRef}>
       <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
         {/* Top Header Bar */}
-        <View style={styles.topBar}>
-          <Text style={[typography.footnote, { color: colors.textMuted, textTransform: 'uppercase' }]}>
-            {todayLabel}
-          </Text>
-          <NavBarButton
-            icon="settings-outline"
-            onPress={() => router.push('/(app)/settings')}
-          />
-        </View>
+        <Animated.View entering={getEntrance(0)} style={headerParallaxStyle}>
+          <View style={styles.topBar}>
+            <Text style={[typography.footnote, { color: colors.textMuted, textTransform: 'uppercase' }]}>
+              {todayLabel}
+            </Text>
+            <NavBarButton
+              icon="settings-outline"
+              onPress={() => router.push('/(app)/settings')}
+            />
+          </View>
+        </Animated.View>
 
         {/* Large Title */}
-        <Text
-          style={[
-            typography.largeTitle,
-            { color: colors.text, marginTop: spacing.xxs, marginBottom: spacing.lg },
-          ]}
-        >
-          {me?.displayName ? `Hello, ${me.displayName}` : 'Two'}
-        </Text>
+        <Animated.View entering={getEntrance(1)} style={collapsingTitleStyle}>
+          <Text
+            style={[
+              typography.largeTitle,
+              { color: colors.text, marginTop: spacing.xxs, marginBottom: spacing.lg },
+            ]}
+          >
+            {me?.displayName ? `Hello, ${me.displayName}` : 'Two'}
+          </Text>
+        </Animated.View>
 
         {/* Partner Invite Banner */}
         {members.length < 2 ? (
-          <Card style={{ marginBottom: spacing.lg, borderColor: colors.accent }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Ionicons name="person-add-outline" size={20} color={colors.accent} style={{ marginRight: spacing.xs }} />
-              <Text style={[typography.headline, { color: colors.text }]}>
-                Your partner hasn't joined yet
+          <Animated.View entering={getEntrance(2)}>
+            <Card style={{ marginBottom: spacing.lg, borderColor: colors.accent }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+                <Ionicons name="person-add-outline" size={20} color={colors.accent} style={{ marginRight: spacing.xs }} />
+                <Text style={[typography.headline, { color: colors.text }]}>
+                  Your partner hasn't joined yet
+                </Text>
+              </View>
+              <Text
+                style={[
+                  typography.subheadline,
+                  { color: colors.textMuted, marginBottom: spacing.md },
+                ]}
+              >
+                Share your invitation code so they can join your private space.
               </Text>
-            </View>
-            <Text
-              style={[
-                typography.subheadline,
-                { color: colors.textMuted, marginBottom: spacing.md },
-              ]}
-            >
-              Share your invitation code so they can join your private space.
-            </Text>
-            <Button
-              label="Show invitation"
-              variant="secondary"
-              onPress={() => router.push('/(app)/invite')}
-            />
-          </Card>
+              <Button
+                label="Show invitation"
+                variant="secondary"
+                onPress={() => router.push('/(app)/invite')}
+              />
+            </Card>
+          </Animated.View>
         ) : null}
 
         {/* Profile Name Prompt */}
         {!hasName ? (
-          <Card style={{ marginBottom: spacing.lg }}>
-            <Text style={[typography.headline, { color: colors.text }]}>
-              What should your partner call you?
-            </Text>
-            <Text
-              style={[
-                typography.subheadline,
-                { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
-              ]}
-            >
-              Set a display name so your partner knows who sent messages and added events.
-            </Text>
-            <Button
-              label="Set your name"
-              variant="secondary"
-              onPress={() => router.push('/(app)/profile')}
-            />
-          </Card>
-        ) : null}
-
-        {/* Next Up Widget Card */}
-        <Card style={{ marginBottom: spacing.xl }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={[typography.footnote, { color: colors.textMuted, textTransform: 'uppercase' }]}>
-              Next up
-            </Text>
-            <Text style={[typography.caption2, { color: colors.textFaint }]}>
-              {syncing
-                ? 'Syncing…'
-                : pendingCount > 0
-                  ? `${pendingCount} waiting`
-                  : 'Synced'}
-            </Text>
-          </View>
-
-          {nextEvent ? (
-            <View style={{ marginTop: spacing.sm }}>
-              <Text style={[typography.title2, { color: colors.text }]}>
-                {nextEvent.title}
+          <Animated.View entering={getEntrance(2)}>
+            <Card style={{ marginBottom: spacing.lg }}>
+              <Text style={[typography.headline, { color: colors.text }]}>
+                What should your partner call you?
               </Text>
               <Text
                 style={[
                   typography.subheadline,
-                  { color: colors.textMuted, marginTop: spacing.xxs },
+                  { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
                 ]}
               >
-                {formatEventRange(nextEvent)}
+                Set a display name so your partner knows who sent messages and added events.
+              </Text>
+              <Button
+                label="Set your name"
+                variant="secondary"
+                onPress={() => router.push('/(app)/profile')}
+              />
+            </Card>
+          </Animated.View>
+        ) : null}
+
+        {/* Next Up Widget Card */}
+        <Animated.View entering={getEntrance(3)}>
+          <Card style={{ marginBottom: spacing.xl }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={[typography.footnote, { color: colors.textMuted, textTransform: 'uppercase' }]}>
+                Next up
+              </Text>
+              <Text style={[typography.caption2, { color: colors.textFaint }]}>
+                {syncing
+                  ? 'Syncing…'
+                  : pendingCount > 0
+                    ? `${pendingCount} waiting`
+                    : 'Synced'}
               </Text>
             </View>
-          ) : (
-            <Text
-              style={[
-                typography.subheadline,
-                { color: colors.textMuted, marginTop: spacing.sm },
-              ]}
-            >
-              Nothing planned for today. Add something for the two of you.
-            </Text>
-          )}
 
-          <View style={[styles.actions, { marginTop: spacing.lg }]}>
-            <Button
-              label="New event"
-              variant="secondary"
-              onPress={() => router.push('/(app)/event/new')}
-              style={{ flex: 1 }}
-            />
-            <View style={{ width: spacing.sm }} />
-            <Button
-              label="Chat"
-              onPress={() => router.push('/(app)/(tabs)/chat')}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </Card>
+            {nextEvent ? (
+              <View style={{ marginTop: spacing.sm }}>
+                <Text style={[typography.title2, { color: colors.text }]}>
+                  {nextEvent.title}
+                </Text>
+                <Text
+                  style={[
+                    typography.subheadline,
+                    { color: colors.textMuted, marginTop: spacing.xxs },
+                  ]}
+                >
+                  {formatEventRange(nextEvent)}
+                </Text>
+              </View>
+            ) : (
+              <Text
+                style={[
+                  typography.subheadline,
+                  { color: colors.textMuted, marginTop: spacing.sm },
+                ]}
+              >
+                Nothing planned for today. Add something for the two of you.
+              </Text>
+            )}
+
+            <View style={[styles.actions, { marginTop: spacing.lg }]}>
+              <Button
+                label="New event"
+                variant="secondary"
+                onPress={() => router.push('/(app)/event/new')}
+                style={{ flex: 1 }}
+              />
+              <View style={{ width: spacing.sm }} />
+              <Button
+                label="Chat"
+                onPress={() => router.push('/(app)/(tabs)/chat')}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </Card>
+        </Animated.View>
 
         {/* Upcoming Events List */}
-        <View style={styles.sectionHeader}>
-          <Text style={[typography.title3, { color: colors.text }]}>
-            Coming up
-          </Text>
-          <Pressable
-            onPress={() => router.push('/(app)/(tabs)/calendar')}
-            hitSlop={8}
-          >
-            <Text style={[typography.subheadline, { color: colors.accent }]}>See all</Text>
-          </Pressable>
-        </View>
-
-        {upcoming.length === 0 ? (
-          <EmptyState
-            icon="calendar-outline"
-            title="No upcoming events"
-            description="Events you both create will show up here."
-          />
-        ) : (
-          <View style={{ marginTop: spacing.xs }}>
-            {upcoming.map((event) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                onPress={() => router.push(`/(app)/event/${event.id}`)}
-                creatorLabel={
-                  event.createdBy === userId
-                    ? undefined
-                    : (partner?.displayName || 'Partner')
-                }
-              />
-            ))}
+        <Animated.View entering={getEntrance(4)}>
+          <View style={styles.sectionHeader}>
+            <Text style={[typography.title3, { color: colors.text }]}>
+              Coming up
+            </Text>
+            <PressableScale
+              onPress={() => router.push('/(app)/(tabs)/calendar')}
+              hitSlop={8}
+              haptics="selection"
+              scaleTo={0.96}
+            >
+              <Text style={[typography.subheadline, { color: colors.accent }]}>See all</Text>
+            </PressableScale>
           </View>
-        )}
+
+          {upcoming.length === 0 ? (
+            <EmptyState
+              icon="calendar-outline"
+              title="No upcoming events"
+              description="Events you both create will show up here."
+            />
+          ) : (
+            <View style={{ marginTop: spacing.xs }}>
+              {upcoming.map((event) => (
+                <EventRow
+                  key={event.id}
+                  event={event}
+                  onPress={() => router.push(`/(app)/event/${event.id}`)}
+                  creatorLabel={
+                    event.createdBy === userId
+                      ? undefined
+                      : (partner?.displayName || 'Partner')
+                  }
+                />
+              ))}
+            </View>
+          )}
+        </Animated.View>
       </View>
     </Screen>
   );

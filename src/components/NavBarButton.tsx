@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../theme/ThemeProvider';
+import { PressableScale } from './PressableScale';
 
 interface NavBarButtonProps {
   label?: string;
@@ -30,14 +31,13 @@ export function NavBarButton({
       : colors.accent;
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled}
       hitSlop={10}
-      style={({ pressed }) => [
-        styles.button,
-        { opacity: pressed ? 0.6 : 1 },
-      ]}
+      scaleTo={0.96}
+      haptics={bold ? 'light' : 'selection'}
+      style={styles.button}
     >
       {icon ? <Ionicons name={icon} size={22} color={tint} /> : null}
       {label ? (
@@ -50,7 +50,7 @@ export function NavBarButton({
           {label}
         </Text>
       ) : null}
-    </Pressable>
+    </PressableScale>
   );
 }
 

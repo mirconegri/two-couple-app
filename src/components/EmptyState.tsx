@@ -1,8 +1,15 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  ZoomIn,
+  useReducedMotion,
+} from 'react-native-reanimated';
 
 import { useTheme } from '../theme/ThemeProvider';
+import { duration, spring } from '../theme/motion';
 
 interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -18,10 +25,18 @@ export function EmptyState({
   action,
 }: EmptyStateProps) {
   const { colors, spacing, typography } = useTheme();
+  const reducedMotion = useReducedMotion();
 
   return (
     <View style={[styles.wrap, { padding: spacing.xxl }]}>
-      <View
+      <Animated.View
+        entering={
+          reducedMotion
+            ? FadeIn.duration(duration.fast)
+            : ZoomIn.springify()
+                .damping(spring.pop.damping)
+                .stiffness(spring.pop.stiffness)
+        }
         style={{
           width: 56,
           height: 56,
@@ -33,34 +48,53 @@ export function EmptyState({
         }}
       >
         <Ionicons name={icon} size={26} color={colors.accent} />
-      </View>
+      </Animated.View>
 
-      <Text
-        style={[
-          typography.heading,
-          { color: colors.text, textAlign: 'center', marginBottom: spacing.xs },
-        ]}
+      <Animated.View
+        entering={
+          reducedMotion
+            ? FadeIn.duration(duration.fast)
+            : FadeInUp.delay(80).duration(duration.base)
+        }
+        style={{ alignItems: 'center' }}
       >
-        {title}
-      </Text>
-
-      {description ? (
         <Text
           style={[
-            typography.body,
-            {
-              color: colors.textMuted,
-              textAlign: 'center',
-              maxWidth: 300,
-              marginBottom: spacing.lg,
-            },
+            typography.heading,
+            { color: colors.text, textAlign: 'center', marginBottom: spacing.xs },
           ]}
         >
-          {description}
+          {title}
         </Text>
-      ) : null}
 
-      {action}
+        {description ? (
+          <Text
+            style={[
+              typography.body,
+              {
+                color: colors.textMuted,
+                textAlign: 'center',
+                maxWidth: 300,
+                marginBottom: spacing.lg,
+              },
+            ]}
+          >
+            {description}
+          </Text>
+        ) : null}
+      </Animated.View>
+
+      {action ? (
+        <Animated.View
+          entering={
+            reducedMotion
+              ? FadeIn.duration(duration.fast)
+              : FadeInUp.delay(160).duration(duration.base)
+          }
+        >
+          {action}
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

@@ -14,15 +14,18 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import * as Haptics from 'expo-haptics';
 
 import { Screen } from './Screen';
 import { TextField } from './TextField';
 import { Button } from './Button';
 import { NavBarButton } from './NavBarButton';
 import { SegmentedControl } from './SegmentedControl';
+import { PressableScale } from './PressableScale';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useTheme } from '../theme/ThemeProvider';
+import { eventPalette } from '../theme/tokens';
 import { enqueueEvent } from '../db/events';
 import { scheduleEventReminders } from '../notifications/reminders';
 import { newId } from '../lib/id';
@@ -95,6 +98,9 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
   );
   const [reminders, setReminders] = useState<number[]>(
     initialEvent?.reminderMinutes ?? [],
+  );
+  const [selectedColor, setSelectedColor] = useState<string | null>(
+    initialEvent?.color ?? null,
   );
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -212,7 +218,7 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
         timezone,
         visibility,
         category: initialEvent?.category ?? null,
-        color: initialEvent?.color ?? null,
+        color: selectedColor,
         reminderMinutes: reminders,
         updatedAt: now,
         deletedAt: null,
@@ -223,6 +229,7 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
       await scheduleEventReminders(event);
 
       notifyLocalChange();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -439,6 +446,46 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
             { color: colors.textMuted, marginBottom: spacing.xs },
           ]}
         >
+          Color
+        </Text>
+
+        <View style={[styles.swatchRow, { marginBottom: spacing.lg }]}>
+          {[null, ...eventPalette].map((swatch) => {
+            const isSelected = selectedColor === swatch;
+            return (
+              <PressableScale
+                key={swatch ?? 'default'}
+                onPress={() => setSelectedColor(swatch)}
+                haptics="selection"
+                scaleTo={0.92}
+                accessibilityRole="button"
+                accessibilityLabel={swatch ? `Color ${swatch}` : 'Default color'}
+                accessibilityState={{ selected: isSelected }}
+                style={[
+                  styles.swatch,
+                  {
+                    backgroundColor: swatch ?? colors.surfaceMuted,
+                    borderColor: isSelected ? colors.text : colors.border,
+                    borderWidth: isSelected ? 2 : 1,
+                  },
+                ]}
+              >
+                {!swatch ? (
+                  <Ionicons name="ban-outline" size={16} color={colors.textMuted} />
+                ) : isSelected ? (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                ) : null}
+              </PressableScale>
+            );
+          })}
+        </View>
+
+        <Text
+          style={[
+            typography.caption,
+            { color: colors.textMuted, marginBottom: spacing.xs },
+          ]}
+        >
           Who can see it
         </Text>
 
@@ -468,9 +515,11 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
               option.minutes.every((value) => reminders.includes(value));
 
             return (
-              <Pressable
+              <PressableScale
                 key={option.label}
                 onPress={() => setReminders(option.minutes)}
+                haptics="selection"
+                scaleTo={0.94}
                 style={[
                   styles.pill,
                   {
@@ -489,7 +538,7 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
                 >
                   {option.label}
                 </Text>
-              </Pressable>
+              </PressableScale>
             );
           })}
         </View>
@@ -532,4 +581,12 @@ const styles = StyleSheet.create({
   timeRow: { flexDirection: 'row' },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill: { alignItems: 'center', justifyContent: 'center' },
+  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  swatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

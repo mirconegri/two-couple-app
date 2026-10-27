@@ -5,6 +5,9 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
+import * as SplashScreen from 'expo-splash-screen';
+
+void SplashScreen.preventAutoHideAsync();
 
 import { DATABASE_NAME, initDatabase } from '../src/db';
 import { AuthProvider } from '../src/auth/AuthProvider';
@@ -39,7 +42,13 @@ export default function RootLayout() {
             <AuthProvider>
               <SyncProvider>
                 <StatusBar style="auto" />
-                <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    animation: 'fade',
+                    animationDuration: 200,
+                  }}
+                >
                   <Stack.Screen name="index" />
                   <Stack.Screen name="(auth)" />
                   <Stack.Screen name="(onboarding)" />

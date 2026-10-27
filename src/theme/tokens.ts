@@ -87,6 +87,17 @@ export const notePastels: readonly string[] = [
   palette.noteGray,
 ];
 
+export const eventPalette: readonly string[] = [
+  palette.systemRed,
+  palette.systemOrange,
+  palette.systemYellow,
+  palette.systemGreen,
+  palette.systemBlue,
+  palette.systemIndigo,
+  palette.systemPurple,
+  palette.systemPink,
+];
+
 export const typography = {
   // Apple Typography Scale
   largeTitle: { fontSize: 34, lineHeight: 41, fontWeight: '700' as const, letterSpacing: 0.37 },
