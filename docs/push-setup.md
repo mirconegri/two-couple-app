@@ -43,7 +43,7 @@ Remote push notifications rely on four components:
 
 1. Go to the [Firebase Console](https://console.firebase.google.com/) and open or create your project.
 2. In **Project Settings** → **General**:
-   - Register your Android app with package name `app.twocouple`.
+   - Register your Android app with package name `app.twocouple.space`.
    - Download `google-services.json` and place it in the project root (ensure it is git-ignored).
 3. In **Project Settings** → **Service Accounts**:
    - Click **Generate new private key** (JSON format).

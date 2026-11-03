@@ -6,11 +6,13 @@ import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+import { useTheme } from '../../src/theme/ThemeProvider';
 import { registerForPushNotifications } from '../../src/notifications/push';
 import { LoadingScreen } from '../../src/components/LoadingScreen';
 
 export default function AppLayout() {
   const { ready, session, coupleId, userId } = useAuth();
+  const { colors } = useTheme();
   const db = useSQLiteContext();
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -52,16 +54,18 @@ export default function AppLayout() {
     presentation: 'modal' as const,
     sheetAllowedDetents: [0.9, 1.0] as [number, number],
     sheetGrabberVisible: true,
+    contentStyle: { backgroundColor: colors.background },
     animation: reduceMotion ? ('fade' as const) : undefined,
-    animationDuration: reduceMotion ? 150 : undefined,
+    animationDuration: reduceMotion ? 150 : 250,
   };
 
   return (
     <Stack
       screenOptions={{
         headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
         animation: reduceMotion ? 'fade' : 'slide_from_right',
-        animationDuration: reduceMotion ? 150 : 350,
+        animationDuration: reduceMotion ? 150 : 250,
         gestureEnabled: true,
         fullScreenGestureEnabled: true,
         animationMatchesGesture: true,

@@ -109,11 +109,11 @@ export default function ChatScreen() {
   const { colors, spacing, typography, radii } = useTheme();
   const { userId, coupleId, members } = useAuth();
   const { notifyLocalChange, syncing } = useSync();
-  const { messages, loading, loadingMore, loadOlder, retry, hasMore } = useMessages();
+  const { messages, loading, loadingMore, loadOlder, retry, hasMore, addOptimisticMessage } =
+    useMessages();
   const partner = members.find((m) => m.userId !== userId);
 
   const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
@@ -200,37 +200,34 @@ export default function ChatScreen() {
     const body = draft.trim();
     if (!body || !coupleId || !userId) return;
 
-    setSending(true);
+    const message: Message = {
+      id: newId(),
+      coupleId,
+      senderId: userId,
+      body,
+      clientCreatedAt: new Date().toISOString(),
+      serverCreatedAt: null,
+      deliveredAt: null,
+      readAt: null,
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+      syncStatus: 'pending',
+      failureReason: null,
+    };
+
+    // Instant optimistic feedback: clear input, show bubble, scroll to latest
+    setDraft('');
     setError(null);
+    addOptimisticMessage(message);
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
 
     try {
-      const message: Message = {
-        id: newId(),
-        coupleId,
-        senderId: userId,
-        body,
-        clientCreatedAt: new Date().toISOString(),
-        serverCreatedAt: null,
-        deliveredAt: null,
-        readAt: null,
-        updatedAt: new Date().toISOString(),
-        deletedAt: null,
-        syncStatus: 'pending',
-        failureReason: null,
-      };
-
-      // Persist locally first: the message appears in the thread even if the
-      // network is gone, and the outbox guarantees it is retried later.
       await enqueueMessage(db, message);
-      setDraft('');
       notifyLocalChange();
-      listRef.current?.scrollToOffset({ offset: 0, animated: true });
     } catch (caught) {
       setError(errorMessage(caught));
-    } finally {
-      setSending(false);
     }
-  }, [coupleId, db, draft, notifyLocalChange, userId]);
+  }, [addOptimisticMessage, coupleId, db, draft, notifyLocalChange, userId]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
@@ -395,7 +392,7 @@ export default function ChatScreen() {
 
         <PressableScale
           onPress={send}
-          disabled={sending || draft.trim().length === 0}
+          disabled={draft.trim().length === 0}
           accessibilityRole="button"
           accessibilityLabel="Send message"
           haptics="light"

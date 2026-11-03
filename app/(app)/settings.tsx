@@ -17,7 +17,7 @@ import { useSync } from '../../src/sync/SyncProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { accents, accentKeys } from '../../src/theme/preferences';
 import { clearLocalData, getMeta } from '../../src/db';
-import { unregisterPushToken } from '../../src/notifications/push';
+import { registerForPushNotifications, unregisterPushToken } from '../../src/notifications/push';
 import { ensureNotificationPermission } from '../../src/notifications/reminders';
 import { errorMessage } from '../../src/utils/errors';
 
@@ -110,6 +110,16 @@ export default function SettingsScreen() {
     } catch (caught) {
       Alert.alert('Test failed', errorMessage(caught));
     }
+  };
+
+  const handleRegisterPush = async () => {
+    if (!coupleId || !userId) return;
+    setBusy(true);
+    setPushStatus('Registering…');
+    const res = await registerForPushNotifications(coupleId, userId, db);
+    const updated = await getMeta(db, 'push_token_status');
+    setPushStatus(updated || (res.ok ? 'Active (token registered)' : res.reason || 'Failed'));
+    setBusy(false);
   };
 
   return (
@@ -269,6 +279,8 @@ export default function SettingsScreen() {
             value={pushStatus}
             icon="notifications"
             iconBg="#FF3B30"
+            onPress={handleRegisterPush}
+            disabled={busy}
           />
           <ListRow
             label="Send test notification"

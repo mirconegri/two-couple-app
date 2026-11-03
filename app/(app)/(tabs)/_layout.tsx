@@ -12,7 +12,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        animation: 'shift',
+        animation: 'fade',
+        sceneStyle: { backgroundColor: colors.background },
         tabBarButton: ({ ref, ...props }) => (
           <PressableScale
             {...props}

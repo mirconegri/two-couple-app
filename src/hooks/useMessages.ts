@@ -67,6 +67,10 @@ export function useMessages() {
     }
   }, [coupleId, db, hasMore, loadingMore, messages]);
 
+  const addOptimisticMessage = useCallback((message: Message) => {
+    setMessages((previous) => [message, ...previous.filter((item) => item.id !== message.id)]);
+  }, []);
+
   const retry = useCallback(
     async (id: string) => {
       await retryMessage(db, id);
@@ -76,5 +80,5 @@ export function useMessages() {
     [db, notifyLocalChange, reload],
   );
 
-  return { messages, loading, loadingMore, hasMore, error, reload, loadOlder, retry };
+  return { messages, loading, loadingMore, hasMore, error, reload, loadOlder, retry, addOptimisticMessage };
 }
