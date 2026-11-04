@@ -3,10 +3,12 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../../../src/theme/ThemeProvider';
+import { useSync } from '../../../src/sync/SyncProvider';
 import { PressableScale } from '../../../src/components/PressableScale';
 
 export default function TabsLayout() {
   const { colors, typography } = useTheme();
+  const { unreadCount } = useSync();
 
   return (
     <Tabs
@@ -44,6 +46,17 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: 'Chat',
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.danger,
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: '700',
+            minWidth: 16,
+            height: 16,
+            lineHeight: 16,
+            borderRadius: 8,
+          },
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
           ),

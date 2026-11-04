@@ -108,7 +108,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { colors, spacing, typography, radii } = useTheme();
   const { userId, coupleId, members } = useAuth();
-  const { notifyLocalChange, syncing } = useSync();
+  const { notifyLocalChange, syncing, refreshUnread, setChatActive } = useSync();
   const { messages, loading, loadingMore, loadOlder, retry, hasMore, addOptimisticMessage } =
     useMessages();
   const partner = members.find((m) => m.userId !== userId);
@@ -186,15 +186,32 @@ export default function ChatScreen() {
     };
   }, [composerTranslateY, reducedMotion]);
 
+  // Notify sync provider when chat screen is active to manage notifications
+  useEffect(() => {
+    setChatActive(true);
+    if (coupleId && userId) {
+      void (async () => {
+        await markLocalMessagesRead(db, coupleId, userId);
+        await refreshUnread();
+      })();
+    }
+    return () => {
+      setChatActive(false);
+    };
+  }, [coupleId, db, refreshUnread, setChatActive, userId]);
+
   // Mark incoming messages as read when viewing the chat.
   useEffect(() => {
     if (!coupleId || !userId) return;
     const hasUnread = messages.some((m) => m.senderId !== userId && !m.readAt);
     if (hasUnread) {
-      void markLocalMessagesRead(db, coupleId, userId);
-      void supabaseRemote.markMessagesRead();
+      void (async () => {
+        await markLocalMessagesRead(db, coupleId, userId);
+        await refreshUnread();
+        void supabaseRemote.markMessagesRead();
+      })();
     }
-  }, [coupleId, db, messages, userId]);
+  }, [coupleId, db, messages, refreshUnread, userId]);
 
   const send = useCallback(async () => {
     const body = draft.trim();

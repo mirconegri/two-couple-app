@@ -9,11 +9,13 @@ import React, {
 } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import * as Notifications from 'expo-notifications';
 
 import { runSyncCycle, type SyncResult } from './engine';
 import { supabaseRemote } from './remote';
 import { subscribeToCouple } from './realtime';
 import { countPending } from '../db/outbox';
+import { countUnread } from '../db/messages';
 import { useAuth } from '../auth/AuthProvider';
 import { rescheduleAllReminders } from '../notifications/reminders';
 
@@ -22,9 +24,12 @@ interface SyncContextValue {
   lastResult: SyncResult | null;
   lastSyncedAt: string | null;
   pendingCount: number;
+  unreadCount: number;
   realtimeStatus: string;
   syncNow: () => Promise<SyncResult | null>;
   notifyLocalChange: () => void;
+  refreshUnread: () => Promise<void>;
+  setChatActive: (active: boolean) => void;
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null);
@@ -33,21 +38,37 @@ const FOREGROUND_INTERVAL_MS = 30_000;
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const db = useSQLiteContext();
-  const { coupleId, refreshCouple } = useAuth();
+  const { coupleId, userId, members, refreshCouple } = useAuth();
 
   const [syncing, setSyncing] = useState(false);
   const [lastResult, setLastResult] = useState<SyncResult | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [realtimeStatus, setRealtimeStatus] = useState('idle');
 
   const running = useRef(false);
   const queued = useRef(false);
+  const isChatActive = useRef(false);
+
+  const setChatActive = useCallback((active: boolean) => {
+    isChatActive.current = active;
+  }, []);
 
   const refreshPending = useCallback(async () => {
     const count = await countPending(db);
     setPendingCount(count);
   }, [db]);
+
+  const refreshUnread = useCallback(async () => {
+    if (!coupleId || !userId) {
+      setUnreadCount(0);
+      return;
+    }
+    const count = await countUnread(db, coupleId, userId);
+    setUnreadCount(count);
+    void Notifications.setBadgeCountAsync(count).catch(() => {});
+  }, [coupleId, db, userId]);
 
   const syncNow = useCallback(async (): Promise<SyncResult | null> => {
     if (!coupleId) return null;
@@ -68,6 +89,25 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       setLastSyncedAt(new Date().toISOString());
       await refreshPending();
       await refreshCouple(db);
+      await refreshUnread();
+
+      // If new messages arrived from partner while outside chat, trigger local notification
+      if (result.pulledMessages > 0 && userId) {
+        const unread = await countUnread(db, coupleId, userId);
+        if (unread > 0 && !isChatActive.current) {
+          const partner = members.find((m) => m.userId !== userId);
+          void Notifications.scheduleNotificationAsync({
+            content: {
+              title: partner?.displayName || 'New message',
+              body: 'You have a new message',
+              data: { type: 'chat', coupleId },
+              sound: 'default',
+            },
+            trigger: null,
+          }).catch(() => {});
+        }
+      }
+
       if (result.pulledEvents > 0) {
         void rescheduleAllReminders(db, coupleId);
       }
@@ -81,17 +121,21 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         void syncNow();
       }
     }
-  }, [coupleId, db, refreshPending]);
+  }, [coupleId, db, members, refreshCouple, refreshPending, refreshUnread, userId]);
 
   const notifyLocalChange = useCallback(() => {
     void refreshPending();
+    void refreshUnread();
     void syncNow();
-  }, [refreshPending, syncNow]);
+  }, [refreshPending, refreshUnread, syncNow]);
 
-  // Pull once when a space becomes available.
+  // Pull once when a space becomes available or identity is established.
   useEffect(() => {
-    if (coupleId) void syncNow();
-  }, [coupleId, syncNow]);
+    if (coupleId) {
+      void syncNow();
+      void refreshUnread();
+    }
+  }, [coupleId, refreshUnread, syncNow]);
 
   // Foreground refresh loop. This is the mechanism that works with no Realtime
   // at all, and it is what recovers from dropped events and reconnects.
@@ -138,11 +182,25 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       lastResult,
       lastSyncedAt,
       pendingCount,
+      unreadCount,
       realtimeStatus,
       syncNow,
       notifyLocalChange,
+      refreshUnread,
+      setChatActive,
     }),
-    [syncing, lastResult, lastSyncedAt, pendingCount, realtimeStatus, syncNow, notifyLocalChange],
+    [
+      syncing,
+      lastResult,
+      lastSyncedAt,
+      pendingCount,
+      unreadCount,
+      realtimeStatus,
+      syncNow,
+      notifyLocalChange,
+      refreshUnread,
+      setChatActive,
+    ],
   );
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
