@@ -26,7 +26,6 @@
     },
     "android": {
       "package": "app.twocouple.space",
-      "googleServicesFile": "./google-services.json",
       "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
