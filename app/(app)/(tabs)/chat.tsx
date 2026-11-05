@@ -27,6 +27,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { MessageBubble } from '../../../src/components/MessageBubble';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { PressableScale } from '../../../src/components/PressableScale';
+import { WallpaperBackground } from '../../../src/components/WallpaperBackground';
+import { StickerPicker } from '../../../src/components/StickerPicker';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useSync } from '../../../src/sync/SyncProvider';
 import { useMessages } from '../../../src/hooks/useMessages';
@@ -34,6 +36,8 @@ import { enqueueMessage, markLocalMessagesRead } from '../../../src/db/messages'
 import { supabaseRemote } from '../../../src/sync/remote';
 import { newId } from '../../../src/lib/id';
 import { useTheme } from '../../../src/theme/ThemeProvider';
+import { useWallpaper } from '../../../src/theme/WallpaperProvider';
+import { encodeStickerMessage, type Sticker } from '../../../src/theme/stickers';
 import { messageDayLabel } from '../../../src/utils/date';
 import { errorMessage } from '../../../src/utils/errors';
 import { duration, easing } from '../../../src/theme/motion';
@@ -113,7 +117,9 @@ export default function ChatScreen() {
     useMessages();
   const partner = members.find((m) => m.userId !== userId);
 
+  const { prefs: wallpaperPrefs } = useWallpaper();
   const [draft, setDraft] = useState('');
+  const [showStickers, setShowStickers] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
@@ -158,6 +164,7 @@ export default function ChatScreen() {
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
         setKeyboardVisible(true);
+        setShowStickers(false);
         listRef.current?.scrollToOffset({ offset: 0, animated: true });
         if (Platform.OS === 'ios' && !reducedMotion && e?.endCoordinates?.height) {
           composerTranslateY.value = withTiming(-e.endCoordinates.height, {
@@ -246,6 +253,40 @@ export default function ChatScreen() {
     }
   }, [addOptimisticMessage, coupleId, db, draft, notifyLocalChange, userId]);
 
+  const sendSticker = useCallback(
+    async (sticker: Sticker) => {
+      if (!coupleId || !userId) return;
+
+      const body = encodeStickerMessage(sticker);
+      const message: Message = {
+        id: newId(),
+        coupleId,
+        senderId: userId,
+        body,
+        clientCreatedAt: new Date().toISOString(),
+        serverCreatedAt: null,
+        deliveredAt: null,
+        readAt: null,
+        updatedAt: new Date().toISOString(),
+        deletedAt: null,
+        syncStatus: 'pending',
+        failureReason: null,
+      };
+
+      setError(null);
+      addOptimisticMessage(message);
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+
+      try {
+        await enqueueMessage(db, message);
+        notifyLocalChange();
+      } catch (caught) {
+        setError(errorMessage(caught));
+      }
+    },
+    [addOptimisticMessage, coupleId, db, notifyLocalChange, userId],
+  );
+
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const next = messages[index + 1];
@@ -313,123 +354,158 @@ export default function ChatScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.fill, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? undefined : 'height'}
-      keyboardVerticalOffset={0}
-    >
-      <View style={{ paddingTop: insets.top + spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs }}>
-        <View style={styles.headerRow}>
-          <Text style={[typography.title1, { color: colors.text }]}>
-            {partner?.displayName ? partner.displayName : 'Chat'}
-          </Text>
-          {syncing ? (
-            <ActivityIndicator size="small" color={colors.textFaint} />
-          ) : null}
-        </View>
-      </View>
-
-      {messages.length === 0 ? (
-        <EmptyState
-          icon="chatbubble-ellipses-outline"
-          title="Say something"
-          description="This conversation is just the two of you. Nothing here is public."
-        />
-      ) : (
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            paddingHorizontal: spacing.lg,
-            paddingTop: spacing.md,
-            paddingBottom: spacing.lg,
-          }}
-          inverted
-          onEndReached={() => {
-            if (hasMore) void loadOlder();
-          }}
-          onEndReachedThreshold={0.4}
-          ListFooterComponent={
-            loadingMore ? (
-              <ActivityIndicator
-                style={{ marginVertical: spacing.md }}
-                color={colors.textFaint}
-              />
-            ) : null
-          }
-        />
-      )}
-
-      {error ? (
-        <Text
-          style={[
-            typography.caption,
-            { color: colors.danger, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
-          ]}
-        >
-          {error}
-        </Text>
-      ) : null}
-
-      <Animated.View
+    <WallpaperBackground prefs={wallpaperPrefs} style={styles.fill}>
+      <KeyboardAvoidingView
         style={[
-          styles.composer,
-          {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-            paddingBottom: keyboardVisible ? spacing.sm : Math.max(insets.bottom, spacing.sm),
-            paddingHorizontal: spacing.md,
-            paddingTop: spacing.sm,
-          },
-          Platform.OS === 'ios' ? composerAnimatedStyle : undefined,
+          styles.fill,
+          { backgroundColor: wallpaperPrefs.id === 'default' ? colors.background : 'transparent' },
         ]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
       >
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Message"
-          placeholderTextColor={colors.textFaint}
-          multiline
-          maxLength={4000}
-          style={[
-            typography.body,
-            styles.input,
-            {
-              color: colors.text,
-              backgroundColor: colors.surfaceMuted,
-              borderRadius: radii.lg,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm + 2,
-            },
-          ]}
-        />
+        <View style={{ paddingTop: insets.top + spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs }}>
+          <View style={styles.headerRow}>
+            <Text style={[typography.title1, { color: colors.text }]}>
+              {partner?.displayName ? partner.displayName : 'Chat'}
+            </Text>
+            {syncing ? (
+              <ActivityIndicator size="small" color={colors.textFaint} />
+            ) : null}
+          </View>
+        </View>
 
-        <PressableScale
-          onPress={send}
-          disabled={draft.trim().length === 0}
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-          haptics="light"
-          scaleTo={0.92}
+        {messages.length === 0 ? (
+          <EmptyState
+            icon="chatbubble-ellipses-outline"
+            title="Say something"
+            description="This conversation is just the two of you. Nothing here is public."
+          />
+        ) : (
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.md,
+              paddingBottom: spacing.lg,
+            }}
+            inverted
+            onEndReached={() => {
+              if (hasMore) void loadOlder();
+            }}
+            onEndReachedThreshold={0.4}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator
+                  style={{ marginVertical: spacing.md }}
+                  color={colors.textFaint}
+                />
+              ) : null
+            }
+          />
+        )}
+
+        {error ? (
+          <Text
+            style={[
+              typography.caption,
+              { color: colors.danger, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
+            ]}
+          >
+            {error}
+          </Text>
+        ) : null}
+
+        <Animated.View
           style={[
-            styles.sendButton,
+            styles.composer,
             {
-              borderRadius: radii.pill,
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+              paddingBottom: keyboardVisible ? spacing.sm : Math.max(insets.bottom, spacing.sm),
+              paddingHorizontal: spacing.md,
+              paddingTop: spacing.sm,
             },
-            sendBtnBgStyle,
+            Platform.OS === 'ios' ? composerAnimatedStyle : undefined,
           ]}
         >
-          <Ionicons
-            name="arrow-up"
-            size={20}
-            color={draft.trim().length === 0 ? colors.textFaint : colors.onAccent}
+          <PressableScale
+            onPress={() => {
+              if (showStickers) {
+                setShowStickers(false);
+              } else {
+                Keyboard.dismiss();
+                setShowStickers(true);
+              }
+            }}
+            hitSlop={8}
+            scaleTo={0.92}
+            accessibilityRole="button"
+            accessibilityLabel="Stickers"
+            style={styles.iconButton}
+          >
+            <Ionicons
+              name={showStickers ? 'keypad' : 'happy-outline'}
+              size={24}
+              color={showStickers ? colors.accent : colors.textFaint}
+            />
+          </PressableScale>
+
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            onFocus={() => setShowStickers(false)}
+            placeholder="Message"
+            placeholderTextColor={colors.textFaint}
+            multiline
+            maxLength={4000}
+            style={[
+              typography.body,
+              styles.input,
+              {
+                color: colors.text,
+                backgroundColor: colors.surfaceMuted,
+                borderRadius: radii.lg,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm + 2,
+              },
+            ]}
           />
-        </PressableScale>
-      </Animated.View>
-    </KeyboardAvoidingView>
+
+          <PressableScale
+            onPress={send}
+            disabled={draft.trim().length === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            haptics="light"
+            scaleTo={0.92}
+            style={[
+              styles.sendButton,
+              {
+                borderRadius: radii.pill,
+              },
+              sendBtnBgStyle,
+            ]}
+          >
+            <Ionicons
+              name="arrow-up"
+              size={20}
+              color={draft.trim().length === 0 ? colors.textFaint : colors.onAccent}
+            />
+          </PressableScale>
+        </Animated.View>
+
+        {showStickers ? (
+          <StickerPicker
+            onSelect={(sticker) => void sendSticker(sticker)}
+            onClose={() => setShowStickers(false)}
+          />
+        ) : null}
+      </KeyboardAvoidingView>
+    </WallpaperBackground>
   );
 }
 
@@ -447,6 +523,13 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   input: { flex: 1, maxHeight: 120, minHeight: 40 },
+  iconButton: {
+    width: 38,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
   sendButton: {
     width: 40,
     height: 40,

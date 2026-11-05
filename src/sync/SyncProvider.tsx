@@ -50,6 +50,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const running = useRef(false);
   const queued = useRef(false);
   const isChatActive = useRef(false);
+  const realtimeDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const setChatActive = useCallback((active: boolean) => {
     isChatActive.current = active;
@@ -96,10 +97,15 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         const unread = await countUnread(db, coupleId, userId);
         if (unread > 0 && !isChatActive.current) {
           const partner = members.find((m) => m.userId !== userId);
+          const latestMessage = await db.getFirstAsync<{ body: string }>(
+            'select body from messages where couple_id = ? and sender_id != ? order by client_created_at desc limit 1',
+            coupleId,
+            userId,
+          );
           void Notifications.scheduleNotificationAsync({
             content: {
-              title: partner?.displayName || 'New message',
-              body: 'You have a new message',
+              title: partner?.displayName || 'Two',
+              body: latestMessage?.body || 'New message',
               data: { type: 'chat', coupleId },
               sound: 'default',
             },
@@ -118,7 +124,9 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
       if (queued.current) {
         queued.current = false;
-        void syncNow();
+        setTimeout(() => {
+          void syncNow();
+        }, 350);
       }
     }
   }, [coupleId, db, members, refreshCouple, refreshPending, refreshUnread, userId]);
@@ -165,15 +173,29 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!coupleId) return undefined;
 
+    const debouncedSync = () => {
+      if (realtimeDebounceTimer.current) {
+        clearTimeout(realtimeDebounceTimer.current);
+      }
+      realtimeDebounceTimer.current = setTimeout(() => {
+        void syncNow();
+      }, 350);
+    };
+
     const unsubscribe = subscribeToCouple(coupleId, {
-      onMessagesChanged: () => void syncNow(),
-      onEventsChanged: () => void syncNow(),
-      onNotesChanged: () => void syncNow(),
-      onMembersChanged: () => void syncNow(),
+      onMessagesChanged: debouncedSync,
+      onEventsChanged: debouncedSync,
+      onNotesChanged: debouncedSync,
+      onMembersChanged: debouncedSync,
       onStatus: (status) => setRealtimeStatus(status),
     });
 
-    return unsubscribe;
+    return () => {
+      if (realtimeDebounceTimer.current) {
+        clearTimeout(realtimeDebounceTimer.current);
+      }
+      unsubscribe();
+    };
   }, [coupleId, syncNow]);
 
   const value = useMemo<SyncContextValue>(

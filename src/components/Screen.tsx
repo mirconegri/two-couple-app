@@ -10,6 +10,8 @@ import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/ThemeProvider';
+import { useWallpaper } from '../theme/WallpaperProvider';
+import { WallpaperBackground } from './WallpaperBackground';
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -31,6 +33,8 @@ export function Screen({
   scrollRef,
 }: ScreenProps) {
   const { colors, spacing } = useTheme();
+  const { prefs: wallpaperPrefs } = useWallpaper();
+  const applyWallpaper = wallpaperPrefs.scope === 'all' && (wallpaperPrefs.id !== 'default' || Boolean(wallpaperPrefs.customUri));
 
   const body = (
     <View
@@ -44,9 +48,9 @@ export function Screen({
     </View>
   );
 
-  return (
+  const content = (
     <SafeAreaView
-      style={[styles.fill, { backgroundColor: colors.background }]}
+      style={[styles.fill, { backgroundColor: applyWallpaper ? 'transparent' : colors.background }]}
       edges={edges}
     >
       {scroll ? (
@@ -64,6 +68,12 @@ export function Screen({
       )}
     </SafeAreaView>
   );
+
+  if (applyWallpaper) {
+    return <WallpaperBackground prefs={wallpaperPrefs} style={styles.fill}>{content}</WallpaperBackground>;
+  }
+
+  return content;
 }
 
 const styles = StyleSheet.create({

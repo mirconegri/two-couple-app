@@ -103,6 +103,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ ok: true, skipped: 'no recipient tokens' });
   }
 
+  // Look up sender's display name to format the notification as "SenderName: Message"
+  let senderName = 'Two';
+  try {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('display_name')
+      .eq('id', record.sender_id)
+      .maybeSingle();
+
+    if (profile?.display_name && profile.display_name.trim().length > 0) {
+      senderName = profile.display_name.trim();
+    }
+  } catch (lookupErr) {
+    console.error('sender name lookup failed', lookupErr);
+  }
+
+  const rawBody = record.body ? record.body.trim() : '';
+  const notificationBody = rawBody.startsWith('[sticker:')
+    ? '❤️ Sticker'
+    : rawBody || 'New message';
+
   interface RecipientMessage {
     to: string;
     userId: string;
@@ -117,8 +138,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const messages: RecipientMessage[] = tokens.map((row: { expo_token: string; user_id: string }) => ({
     to: row.expo_token,
     userId: row.user_id,
-    title: 'New message',
-    body: 'Open Two to read it',
+    title: senderName,
+    body: notificationBody,
     data: { type: 'chat', coupleId: record.couple_id },
     priority: 'high',
     channelId: 'messages',

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import Animated, {
@@ -16,6 +16,7 @@ import Animated, {
 
 import type { Message } from '../types';
 import { useTheme } from '../theme/ThemeProvider';
+import { parseStickerMessage } from '../theme/stickers';
 import { PressableScale } from './PressableScale';
 import { spring } from '../theme/motion';
 
@@ -126,6 +127,70 @@ export function MessageBubble({
 
   const failed = message.syncStatus === 'failed';
   const pending = message.syncStatus === 'pending';
+  const stickerData = parseStickerMessage(message.body);
+
+  if (stickerData) {
+    return (
+      <View
+        style={[
+          styles.row,
+          { justifyContent: isMine ? 'flex-end' : 'flex-start' },
+          { marginBottom: spacing.md },
+        ]}
+      >
+        <View style={{ alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+          {showSenderName ? (
+            <Text
+              style={[
+                typography.micro,
+                {
+                  color: colors.textMuted,
+                  marginBottom: 2,
+                  marginLeft: isMine ? 0 : spacing.xs,
+                  marginRight: isMine ? spacing.xs : 0,
+                  textAlign: isMine ? 'right' : 'left',
+                },
+              ]}
+            >
+              {senderName}
+            </Text>
+          ) : null}
+
+          <View style={styles.stickerContainer}>
+            {stickerData.type === 'emoji' ? (
+              <Text style={styles.stickerEmoji}>{stickerData.value}</Text>
+            ) : (
+              <Image
+                source={{ uri: stickerData.value }}
+                style={styles.stickerImage}
+                resizeMode="contain"
+              />
+            )}
+
+            <View style={styles.stickerMetaPill}>
+              <Text style={[typography.caption2, { color: '#FFFFFF', fontSize: 10 }]}>{time}</Text>
+              {isMine && pending ? <PendingClock /> : null}
+              {isMine && failed ? (
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry sending"
+                  onPress={() => onRetry(message.id)}
+                  hitSlop={8}
+                  scaleTo={0.9}
+                  style={{ marginLeft: spacing.xs }}
+                >
+                  <Ionicons name="alert-circle" size={12} color={colors.danger} />
+                </PressableScale>
+              ) : null}
+              {isMine && !pending && !failed ? (
+                <ReceiptChecks readAt={message.readAt} deliveredAt={message.deliveredAt} />
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -228,4 +293,28 @@ const styles = StyleSheet.create({
   bubble: { flexShrink: 1 },
   metaRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end' },
   checksRow: { flexDirection: 'row', alignItems: 'center' },
+  stickerContainer: {
+    position: 'relative',
+    padding: 4,
+  },
+  stickerEmoji: {
+    fontSize: 72,
+    lineHeight: 84,
+  },
+  stickerImage: {
+    width: 130,
+    height: 130,
+    borderRadius: 12,
+  },
+  stickerMetaPill: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
 });

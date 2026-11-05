@@ -186,7 +186,8 @@ export async function pullChanges(
       }
     });
 
-    if (messages.length > 0) {
+    const hasUndelivered = messages.some((m) => m.deliveredAt === null);
+    if (hasUndelivered) {
       void remote.markMessagesDelivered();
     }
 

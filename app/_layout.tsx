@@ -16,6 +16,7 @@ import * as SystemUI from 'expo-system-ui';
 import { DATABASE_NAME, initDatabase } from '../src/db';
 import { AuthProvider } from '../src/auth/AuthProvider';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
+import { WallpaperProvider } from '../src/theme/WallpaperProvider';
 import { SyncProvider } from '../src/sync/SyncProvider';
 import { configureNotificationChannels } from '../src/notifications/reminders';
 
@@ -87,13 +88,15 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <SQLiteProvider databaseName={DATABASE_NAME} onInit={onInit} useSuspense={false}>
-            <AuthProvider>
-              <SyncProvider>
-                <RootNavigator />
-              </SyncProvider>
-            </AuthProvider>
-          </SQLiteProvider>
+          <WallpaperProvider>
+            <SQLiteProvider databaseName={DATABASE_NAME} onInit={onInit} useSuspense={false}>
+              <AuthProvider>
+                <SyncProvider>
+                  <RootNavigator />
+                </SyncProvider>
+              </AuthProvider>
+            </SQLiteProvider>
+          </WallpaperProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

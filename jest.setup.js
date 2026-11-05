@@ -1,3 +1,7 @@
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
+
 // Keep test output free of the noisy animation / notification warnings.
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
