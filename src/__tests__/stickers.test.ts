@@ -4,6 +4,10 @@ import {
   encodeStickerMessage,
   addRecentSticker,
   toggleFavoriteSticker,
+  addCustomSticker,
+  updateStickerStoragePath,
+  loadCustomStickers,
+  base64ToArrayBuffer,
   type Sticker,
 } from '../theme/stickers';
 
@@ -11,6 +15,8 @@ describe('stickers module', () => {
   it('correctly detects sticker messages', () => {
     expect(isStickerMessage('[sticker:😘]')).toBe(true);
     expect(isStickerMessage('[sticker_img:file:///path/to/img.png]')).toBe(true);
+    expect(isStickerMessage('[sticker_storage:couple_1/abc.webp]')).toBe(true);
+    expect(isStickerMessage('[sticker:unclosed')).toBe(false);
     expect(isStickerMessage('Hello there')).toBe(false);
     expect(isStickerMessage('')).toBe(false);
   });
@@ -41,6 +47,40 @@ describe('stickers module', () => {
 
     const parsed = parseStickerMessage(encoded);
     expect(parsed).toEqual({ type: 'image', value: 'file:///data/user/0/img.png' });
+  });
+
+  it('prefers storagePath when encoding synced custom stickers', () => {
+    const sticker: Sticker = {
+      id: 'custom_456',
+      packId: 'custom',
+      label: 'Synced sticker',
+      imageUri: 'file:///data/user/0/local.png',
+      storagePath: 'couple-uuid/sticker-uuid.png',
+    };
+    const encoded = encodeStickerMessage(sticker);
+    expect(encoded).toBe('[sticker_storage:couple-uuid/sticker-uuid.png]');
+
+    const parsed = parseStickerMessage(encoded);
+    expect(parsed).toEqual({ type: 'storage', value: 'couple-uuid/sticker-uuid.png' });
+  });
+
+  it('backfills storagePath across saved lists', async () => {
+    const added = await addCustomSticker('file:///local.png', 'Test');
+    await addRecentSticker(added);
+    await toggleFavoriteSticker(added);
+
+    await updateStickerStoragePath(added.id, 'c1/s1.png');
+
+    const customs = await loadCustomStickers();
+    expect(customs.find((s) => s.id === added.id)?.storagePath).toBe('c1/s1.png');
+  });
+
+  it('decodes base64 payloads into ArrayBuffer cleanly', () => {
+    const bytes = new Uint8Array(base64ToArrayBuffer('SGVsbG8='));
+    expect(Array.from(bytes)).toEqual([72, 101, 108, 108, 111]);
+
+    const dataUriBytes = new Uint8Array(base64ToArrayBuffer('data:image/png;base64,AQI='));
+    expect(Array.from(dataUriBytes)).toEqual([1, 2]);
   });
 
   it('caps recents at 20 items and prioritizes latest', async () => {

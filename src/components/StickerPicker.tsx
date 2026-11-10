@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -12,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 
+import { useAuth } from '../auth/AuthProvider';
 import { useTheme } from '../theme/ThemeProvider';
 import { PressableScale } from './PressableScale';
 import {
@@ -26,19 +28,48 @@ import {
   loadCustomStickers,
   addCustomSticker,
 } from '../theme/stickers';
+import { getSignedStickerUrl, uploadStickerToStorage } from '../theme/stickerStorage';
 
 interface StickerPickerProps {
   onSelect: (sticker: Sticker) => void;
   onClose: () => void;
 }
 
+function PickerStickerImage({ sticker }: { sticker: Sticker }) {
+  const [uri, setUri] = useState<string | undefined>(sticker.imageUri);
+
+  useEffect(() => {
+    setUri(sticker.imageUri);
+  }, [sticker.imageUri]);
+
+  const handleError = () => {
+    if (sticker.storagePath && uri === sticker.imageUri) {
+      void getSignedStickerUrl(sticker.storagePath).then((signed) => {
+        if (signed) setUri(signed);
+      });
+    }
+  };
+
+  if (!uri) return null;
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.customImage}
+      resizeMode="contain"
+      onError={handleError}
+    />
+  );
+}
+
 export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
+  const { coupleId } = useAuth();
   const { colors, spacing, radii, typography } = useTheme();
 
   const [activeTab, setActiveTab] = useState<StickerPack['id']>('love');
   const [recents, setRecents] = useState<Sticker[]>([]);
   const [favorites, setFavorites] = useState<Sticker[]>([]);
   const [customStickers, setCustomStickers] = useState<Sticker[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const reloadLists = useCallback(async () => {
     const [r, f, c] = await Promise.all([
@@ -69,29 +100,48 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
   };
 
   const handleAddFromGallery = async () => {
+    if (uploading) return;
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         Alert.alert(
           'Permesso richiesto',
-          'Consenti l\'accesso alla galleria per scegliere o importare sticker.',
+          "Consenti l'accesso alla galleria per scegliere o importare sticker.",
         );
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 0.85,
-        aspect: [1, 1],
+        allowsEditing: false,
+        quality: 1,
+        base64: true,
       });
 
-      if (!result.canceled && result.assets?.[0]?.uri) {
-        const added = await addCustomSticker(result.assets[0].uri);
-        void handleSelect(added);
+      const asset = result.assets?.[0];
+      if (!result.canceled && asset?.uri) {
+        setUploading(true);
+        try {
+          let storagePath: string | undefined;
+          if (coupleId) {
+            storagePath = await uploadStickerToStorage(coupleId, asset.uri, {
+              base64: asset.base64,
+              mimeType: asset.mimeType,
+            });
+          }
+          const added = await addCustomSticker(asset.uri, 'Sticker', storagePath);
+          await handleSelect(added);
+        } catch (uploadErr) {
+          Alert.alert(
+            'Upload non riuscito',
+            uploadErr instanceof Error ? uploadErr.message : 'Controlla la connessione e riprova.',
+          );
+        } finally {
+          setUploading(false);
+        }
       }
-    } catch (err) {
-      Alert.alert('Errore', 'Impossibile caricare l\'immagine.');
+    } catch {
+      Alert.alert('Errore', "Impossibile caricare l'immagine.");
     }
   };
 
@@ -187,14 +237,19 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
           {activeTab === 'custom' ? (
             <PressableScale
               onPress={handleAddFromGallery}
+              disabled={uploading}
               style={[
                 styles.addButton,
                 { backgroundColor: colors.accent, borderRadius: radii.pill, marginTop: spacing.md },
               ]}
             >
-              <Ionicons name="add" size={18} color={colors.onAccent} />
+              {uploading ? (
+                <ActivityIndicator size="small" color={colors.onAccent} />
+              ) : (
+                <Ionicons name="add" size={18} color={colors.onAccent} />
+              )}
               <Text style={[typography.body, { color: colors.onAccent, fontWeight: '600', marginLeft: 6 }]}>
-                Aggiungi da galleria / WhatsApp
+                {uploading ? 'Caricamento...' : 'Aggiungi da galleria / WhatsApp'}
               </Text>
             </PressableScale>
           ) : null}
@@ -204,6 +259,7 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
           data={displayStickers}
           keyExtractor={(item) => item.id}
           numColumns={4}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: spacing.sm, paddingBottom: spacing.xxxl }}
           renderItem={({ item }) => {
             const fav = isFavorite(item.id);
@@ -221,12 +277,8 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
                   ]}
                   activeOpacity={0.7}
                 >
-                  {item.imageUri ? (
-                    <Image
-                      source={{ uri: item.imageUri }}
-                      style={styles.customImage}
-                      resizeMode="contain"
-                    />
+                  {item.imageUri || item.storagePath ? (
+                    <PickerStickerImage sticker={item} />
                   ) : (
                     <Text style={styles.emojiText}>{item.emoji}</Text>
                   )}
@@ -251,14 +303,19 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
             activeTab === 'custom' ? (
               <PressableScale
                 onPress={handleAddFromGallery}
+                disabled={uploading}
                 style={[
                   styles.addButton,
                   { backgroundColor: colors.accent, borderRadius: radii.pill, marginVertical: spacing.md },
                 ]}
               >
-                <Ionicons name="add" size={18} color={colors.onAccent} />
+                {uploading ? (
+                  <ActivityIndicator size="small" color={colors.onAccent} />
+                ) : (
+                  <Ionicons name="add" size={18} color={colors.onAccent} />
+                )}
                 <Text style={[typography.body, { color: colors.onAccent, fontWeight: '600', marginLeft: 6 }]}>
-                  Aggiungi altro da galleria
+                  {uploading ? 'Caricamento...' : 'Aggiungi altro da galleria'}
                 </Text>
               </PressableScale>
             ) : null

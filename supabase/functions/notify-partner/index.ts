@@ -120,7 +120,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const rawBody = record.body ? record.body.trim() : '';
-  const notificationBody = rawBody.startsWith('[sticker:')
+  const isSticker =
+    rawBody.startsWith('[sticker:') ||
+    rawBody.startsWith('[sticker_img:') ||
+    rawBody.startsWith('[sticker_storage:');
+  const notificationBody = isSticker
     ? '❤️ Sticker'
     : rawBody || 'New message';
 

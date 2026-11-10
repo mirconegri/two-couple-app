@@ -18,6 +18,7 @@ import { countPending } from '../db/outbox';
 import { countUnread } from '../db/messages';
 import { useAuth } from '../auth/AuthProvider';
 import { rescheduleAllReminders } from '../notifications/reminders';
+import { isStickerMessage } from '../theme/stickers';
 
 interface SyncContextValue {
   syncing: boolean;
@@ -102,10 +103,14 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
             coupleId,
             userId,
           );
+          const rawBody = latestMessage?.body?.trim() ?? '';
+          const notificationBody = isStickerMessage(rawBody)
+            ? '❤️ Sticker'
+            : rawBody || 'New message';
           void Notifications.scheduleNotificationAsync({
             content: {
               title: partner?.displayName || 'Two',
-              body: latestMessage?.body || 'New message',
+              body: notificationBody,
               data: { type: 'chat', coupleId },
               sound: 'default',
             },

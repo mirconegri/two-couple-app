@@ -6,6 +6,7 @@ export interface Sticker {
   label: string;
   emoji?: string;
   imageUri?: string;
+  storagePath?: string;
 }
 
 export interface StickerPack {
@@ -30,7 +31,7 @@ export const BUILTIN_STICKERS: Sticker[] = [
   { id: 'love_heart_eyes', packId: 'love', label: 'Innamorato', emoji: '😍' },
   { id: 'love_sparkling_heart', packId: 'love', label: 'Cuore brillante', emoji: '💖' },
   { id: 'love_rose', packId: 'love', label: 'Rosa per te', emoji: '🌹' },
-  { id: 'love_letter', packId: 'love', label: 'Lettera d\'amore', emoji: '💌' },
+  { id: 'love_letter', packId: 'love', label: "Lettera d'amore", emoji: '💌' },
   { id: 'love_heart_arrow', packId: 'love', label: 'Colpo di fulmine', emoji: '💘' },
   { id: 'love_two_hearts', packId: 'love', label: 'Due cuori', emoji: '💕' },
   { id: 'love_fire_heart', packId: 'love', label: 'Passione', emoji: '❤️‍🔥' },
@@ -42,7 +43,7 @@ export const BUILTIN_STICKERS: Sticker[] = [
   // Cuccioli
   { id: 'anim_cat_love', packId: 'animals', label: 'Gattino innamorato', emoji: '😻' },
   { id: 'anim_cat_kiss', packId: 'animals', label: 'Bacetto miao', emoji: '😽' },
-  { id: 'anim_bear_hug', packId: 'animals', label: 'Abbraccio d\'orso', emoji: '🐻' },
+  { id: 'anim_bear_hug', packId: 'animals', label: "Abbraccio d'orso", emoji: '🐻' },
   { id: 'anim_bunny_couple', packId: 'animals', label: 'Coniglietto dolce', emoji: '🐰' },
   { id: 'anim_puppy_eyes', packId: 'animals', label: 'Occhi dolci', emoji: '🐶' },
   { id: 'anim_fox_cuddle', packId: 'animals', label: 'Volpina dolce', emoji: '🦊' },
@@ -74,6 +75,40 @@ const RECENTS_KEY = '@twocouple_sticker_recents_v1';
 const FAVORITES_KEY = '@twocouple_sticker_favorites_v1';
 const CUSTOM_STICKERS_KEY = '@twocouple_sticker_custom_v1';
 
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const BASE64_LOOKUP = new Uint8Array(256).fill(255);
+for (let i = 0; i < BASE64_CHARS.length; i += 1) {
+  BASE64_LOOKUP[BASE64_CHARS.charCodeAt(i)] = i;
+}
+
+export function base64ToArrayBuffer(input: string): ArrayBuffer {
+  const commaIdx = input.indexOf(',');
+  const raw = (commaIdx >= 0 ? input.slice(commaIdx + 1) : input).replace(/\s+/g, '');
+  const len = raw.length;
+  if (len === 0) return new ArrayBuffer(0);
+
+  let padding = 0;
+  if (raw.endsWith('==')) padding = 2;
+  else if (raw.endsWith('=')) padding = 1;
+
+  const byteLen = Math.floor((len * 3) / 4) - padding;
+  const bytes = new Uint8Array(Math.max(byteLen, 0));
+
+  let p = 0;
+  for (let i = 0; i < len; i += 4) {
+    const c1 = BASE64_LOOKUP[raw.charCodeAt(i)] ?? 0;
+    const c2 = BASE64_LOOKUP[raw.charCodeAt(i + 1)] ?? 0;
+    const c3 = BASE64_LOOKUP[raw.charCodeAt(i + 2)] ?? 0;
+    const c4 = BASE64_LOOKUP[raw.charCodeAt(i + 3)] ?? 0;
+
+    if (p < byteLen) bytes[p++] = (c1 << 2) | (c2 >> 4);
+    if (p < byteLen) bytes[p++] = ((c2 & 15) << 4) | (c3 >> 2);
+    if (p < byteLen) bytes[p++] = ((c3 & 3) << 6) | c4;
+  }
+
+  return bytes.buffer;
+}
+
 export async function loadRecentStickers(): Promise<Sticker[]> {
   try {
     const raw = await AsyncStorage.getItem(RECENTS_KEY);
@@ -87,7 +122,7 @@ export async function addRecentSticker(sticker: Sticker): Promise<Sticker[]> {
   try {
     const current = await loadRecentStickers();
     const filtered = current.filter((s) => s.id !== sticker.id);
-    const updated = [sticker, ...filtered].slice(0, 20); // Top 20 recent stickers
+    const updated = [sticker, ...filtered].slice(0, 20);
     await AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(updated));
     return updated;
   } catch {
@@ -127,12 +162,17 @@ export async function loadCustomStickers(): Promise<Sticker[]> {
   }
 }
 
-export async function addCustomSticker(imageUri: string, label = 'Sticker'): Promise<Sticker> {
+export async function addCustomSticker(
+  imageUri: string,
+  label = 'Sticker',
+  storagePath?: string,
+): Promise<Sticker> {
   const newSticker: Sticker = {
     id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     packId: 'custom',
     label,
     imageUri,
+    storagePath,
   };
   try {
     const current = await loadCustomStickers();
@@ -144,27 +184,75 @@ export async function addCustomSticker(imageUri: string, label = 'Sticker'): Pro
   return newSticker;
 }
 
-export function isStickerMessage(body: string): boolean {
-  return typeof body === 'string' && (body.startsWith('[sticker:') || body.startsWith('[sticker_img:'));
+export async function updateStickerStoragePath(
+  stickerId: string,
+  storagePath: string,
+): Promise<void> {
+  const patchList = async (key: string) => {
+    try {
+      const raw = await AsyncStorage.getItem(key);
+      if (!raw) return;
+      const items = JSON.parse(raw) as Sticker[];
+      let changed = false;
+      const next = items.map((s) => {
+        if (s.id === stickerId && s.storagePath !== storagePath) {
+          changed = true;
+          return { ...s, storagePath };
+        }
+        return s;
+      });
+      if (changed) {
+        await AsyncStorage.setItem(key, JSON.stringify(next));
+      }
+    } catch {
+      // Best-effort
+    }
+  };
+
+  await Promise.all([
+    patchList(CUSTOM_STICKERS_KEY),
+    patchList(RECENTS_KEY),
+    patchList(FAVORITES_KEY),
+  ]);
 }
 
-export function parseStickerMessage(body: string): { type: 'emoji' | 'image'; value: string } | null {
+export function isStickerMessage(body: string): boolean {
+  return (
+    typeof body === 'string' &&
+    body.endsWith(']') &&
+    (body.startsWith('[sticker:') ||
+      body.startsWith('[sticker_img:') ||
+      body.startsWith('[sticker_storage:'))
+  );
+}
+
+export function parseStickerMessage(
+  body: string,
+): { type: 'emoji' | 'image' | 'storage'; value: string } | null {
   if (!isStickerMessage(body)) return null;
 
   if (body.startsWith('[sticker:')) {
-    const emoji = body.slice(9, body.length - 1);
-    return { type: 'emoji', value: emoji };
+    const emoji = body.slice(9, -1);
+    return emoji ? { type: 'emoji', value: emoji } : null;
   }
 
   if (body.startsWith('[sticker_img:')) {
-    const uri = body.slice(13, body.length - 1);
-    return { type: 'image', value: uri };
+    const uri = body.slice(13, -1);
+    return uri ? { type: 'image', value: uri } : null;
+  }
+
+  if (body.startsWith('[sticker_storage:')) {
+    const path = body.slice(17, -1);
+    return path ? { type: 'storage', value: path } : null;
   }
 
   return null;
 }
 
 export function encodeStickerMessage(sticker: Sticker): string {
+  if (sticker.storagePath) {
+    return `[sticker_storage:${sticker.storagePath}]`;
+  }
   if (sticker.imageUri) {
     return `[sticker_img:${sticker.imageUri}]`;
   }

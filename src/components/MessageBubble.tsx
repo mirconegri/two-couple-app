@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import Animated, {
@@ -17,8 +17,103 @@ import Animated, {
 import type { Message } from '../types';
 import { useTheme } from '../theme/ThemeProvider';
 import { parseStickerMessage } from '../theme/stickers';
+import {
+  getCachedSignedStickerUrl,
+  getSignedStickerUrl,
+  invalidateSignedStickerUrl,
+} from '../theme/stickerStorage';
 import { PressableScale } from './PressableScale';
 import { spring } from '../theme/motion';
+
+function StickerMedia({ type, value }: { type: 'image' | 'storage'; value: string }) {
+  const { colors, typography } = useTheme();
+  const [uri, setUri] = useState<string | null>(() =>
+    type === 'storage' ? getCachedSignedStickerUrl(value) : value,
+  );
+  const [loading, setLoading] = useState(() => type === 'storage' && !getCachedSignedStickerUrl(value));
+  const [failed, setFailed] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    if (type !== 'storage') {
+      setUri(value);
+      setLoading(false);
+      setFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    const cached = getCachedSignedStickerUrl(value);
+    if (cached && retryCount === 0) {
+      setUri(cached);
+      setLoading(false);
+      setFailed(false);
+      return;
+    }
+
+    setLoading(true);
+    setFailed(false);
+    void getSignedStickerUrl(value).then((signedUrl) => {
+      if (cancelled) return;
+      if (signedUrl) {
+        setUri(signedUrl);
+        setFailed(false);
+      } else {
+        setFailed(true);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [retryCount, type, value]);
+
+  if (loading) {
+    return (
+      <View style={[styles.stickerImage, styles.stickerPlaceholder, { backgroundColor: colors.surfaceMuted }]}>
+        <ActivityIndicator size="small" color={colors.textFaint} />
+      </View>
+    );
+  }
+
+  if (failed || !uri) {
+    return (
+      <PressableScale
+        onPress={
+          type === 'storage'
+            ? () => {
+                void invalidateSignedStickerUrl(value).then(() => setRetryCount((c) => c + 1));
+              }
+            : undefined
+        }
+        disabled={type !== 'storage'}
+        style={[styles.stickerImage, styles.stickerPlaceholder, { backgroundColor: colors.surfaceMuted }]}
+      >
+        <Ionicons
+          name={type === 'storage' ? 'refresh-outline' : 'image-outline'}
+          size={26}
+          color={colors.textFaint}
+        />
+        <Text style={[typography.micro, { color: colors.textFaint, marginTop: 4 }]}>Sticker</Text>
+      </PressableScale>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.stickerImage}
+      resizeMode="contain"
+      onError={() => {
+        if (type === 'storage') {
+          void invalidateSignedStickerUrl(value);
+        }
+        setFailed(true);
+      }}
+    />
+  );
+}
 
 interface MessageBubbleProps {
   message: Message;
@@ -160,11 +255,7 @@ export function MessageBubble({
             {stickerData.type === 'emoji' ? (
               <Text style={styles.stickerEmoji}>{stickerData.value}</Text>
             ) : (
-              <Image
-                source={{ uri: stickerData.value }}
-                style={styles.stickerImage}
-                resizeMode="contain"
-              />
+              <StickerMedia type={stickerData.type} value={stickerData.value} />
             )}
 
             <View style={styles.stickerMetaPill}>
@@ -305,6 +396,10 @@ const styles = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius: 12,
+  },
+  stickerPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stickerMetaPill: {
     position: 'absolute',

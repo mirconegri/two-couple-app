@@ -3,8 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +18,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { KeyboardAvoidingView, KeyboardEvents } from 'react-native-keyboard-controller';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,10 +36,15 @@ import { supabaseRemote } from '../../../src/sync/remote';
 import { newId } from '../../../src/lib/id';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { useWallpaper } from '../../../src/theme/WallpaperProvider';
-import { encodeStickerMessage, type Sticker } from '../../../src/theme/stickers';
+import {
+  encodeStickerMessage,
+  updateStickerStoragePath,
+  type Sticker,
+} from '../../../src/theme/stickers';
+import { uploadStickerToStorage } from '../../../src/theme/stickerStorage';
 import { messageDayLabel } from '../../../src/utils/date';
 import { errorMessage } from '../../../src/utils/errors';
-import { duration, easing } from '../../../src/theme/motion';
+import { duration } from '../../../src/theme/motion';
 import type { Message } from '../../../src/types';
 
 function ChatLoadingShimmer() {
@@ -121,15 +125,17 @@ export default function ChatScreen() {
   const [draft, setDraft] = useState('');
   const [showStickers, setShowStickers] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
+  const inputRef = useRef<TextInput>(null);
+  const keyboardVisibleRef = useRef(false);
+  const pendingStickersRef = useRef(false);
+  const stickersDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reducedMotion = useReducedMotion();
   const seenMessageIds = useRef<Set<string>>(new Set());
   const initialPopulated = useRef(false);
 
   const isDraftValid = draft.trim().length > 0;
   const sendBtnProgress = useSharedValue(isDraftValid ? 1 : 0);
-  const composerTranslateY = useSharedValue(0);
 
   useEffect(() => {
     sendBtnProgress.value = withTiming(isDraftValid ? 1 : 0, {
@@ -146,10 +152,6 @@ export default function ChatScreen() {
     return { backgroundColor: bg };
   });
 
-  const composerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: composerTranslateY.value }],
-  }));
-
   useEffect(() => {
     if (messages.length > 0 && !initialPopulated.current) {
       for (const m of messages) {
@@ -160,38 +162,45 @@ export default function ChatScreen() {
   }, [messages]);
 
   useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardVisible(true);
-        setShowStickers(false);
-        listRef.current?.scrollToOffset({ offset: 0, animated: true });
-        if (Platform.OS === 'ios' && !reducedMotion && e?.endCoordinates?.height) {
-          composerTranslateY.value = withTiming(-e.endCoordinates.height, {
-            duration: 250,
-            easing: easing.standard,
-          });
-        }
-      },
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-        if (Platform.OS === 'ios' && !reducedMotion) {
-          composerTranslateY.value = withTiming(0, {
-            duration: 250,
-            easing: easing.standard,
-          });
-        }
-      },
-    );
+    const clearPendingTimer = () => {
+      if (stickersDelayTimerRef.current) {
+        clearTimeout(stickersDelayTimerRef.current);
+        stickersDelayTimerRef.current = null;
+      }
+    };
+
+    const willShowSub = KeyboardEvents.addListener('keyboardWillShow', () => {
+      keyboardVisibleRef.current = true;
+      pendingStickersRef.current = false;
+      clearPendingTimer();
+      setShowStickers(false);
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+
+    const didShowSub = KeyboardEvents.addListener('keyboardDidShow', () => {
+      keyboardVisibleRef.current = true;
+      pendingStickersRef.current = false;
+      clearPendingTimer();
+      setShowStickers(false);
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+
+    const didHideSub = KeyboardEvents.addListener('keyboardDidHide', () => {
+      keyboardVisibleRef.current = false;
+      if (pendingStickersRef.current) {
+        pendingStickersRef.current = false;
+        clearPendingTimer();
+        setShowStickers(true);
+      }
+    });
 
     return () => {
-      showSub.remove();
-      hideSub.remove();
+      willShowSub.remove();
+      didShowSub.remove();
+      didHideSub.remove();
+      clearPendingTimer();
     };
-  }, [composerTranslateY, reducedMotion]);
+  }, []);
 
   // Notify sync provider when chat screen is active to manage notifications
   useEffect(() => {
@@ -219,6 +228,33 @@ export default function ChatScreen() {
       })();
     }
   }, [coupleId, db, messages, refreshUnread, userId]);
+
+  const toggleStickers = useCallback(() => {
+    if (showStickers) {
+      pendingStickersRef.current = false;
+      setShowStickers(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+
+    if (!keyboardVisibleRef.current) {
+      setShowStickers(true);
+      return;
+    }
+
+    pendingStickersRef.current = true;
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+    if (stickersDelayTimerRef.current) {
+      clearTimeout(stickersDelayTimerRef.current);
+    }
+    stickersDelayTimerRef.current = setTimeout(() => {
+      if (pendingStickersRef.current) {
+        pendingStickersRef.current = false;
+        setShowStickers(true);
+      }
+    }, 260);
+  }, [showStickers]);
 
   const send = useCallback(async () => {
     const body = draft.trim();
@@ -257,7 +293,26 @@ export default function ChatScreen() {
     async (sticker: Sticker) => {
       if (!coupleId || !userId) return;
 
-      const body = encodeStickerMessage(sticker);
+      setError(null);
+      let stickerToSend = sticker;
+
+      // Upload local-only custom stickers lazily so the partner receives a synced storage object.
+      if (
+        sticker.imageUri &&
+        !sticker.storagePath &&
+        !sticker.imageUri.startsWith('http')
+      ) {
+        try {
+          const storagePath = await uploadStickerToStorage(coupleId, sticker.imageUri);
+          stickerToSend = { ...sticker, storagePath };
+          await updateStickerStoragePath(sticker.id, storagePath);
+        } catch (caught) {
+          setError(errorMessage(caught));
+          return;
+        }
+      }
+
+      const body = encodeStickerMessage(stickerToSend);
       const message: Message = {
         id: newId(),
         coupleId,
@@ -273,7 +328,6 @@ export default function ChatScreen() {
         failureReason: null,
       };
 
-      setError(null);
       addOptimisticMessage(message);
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
 
@@ -299,9 +353,9 @@ export default function ChatScreen() {
 
       const isMine = item.senderId === userId;
       const me = members.find((m) => m.userId === userId);
-      const partner = members.find((m) => m.userId !== userId);
+      const partnerMember = members.find((m) => m.userId !== userId);
       const myName = me?.displayName || 'You';
-      const partnerName = partner?.displayName || 'Partner';
+      const partnerName = partnerMember?.displayName || 'Partner';
       const senderName = isMine ? myName : partnerName;
 
       const isNew = !seenMessageIds.current.has(item.id);
@@ -360,7 +414,7 @@ export default function ChatScreen() {
           styles.fill,
           { backgroundColor: wallpaperPrefs.id === 'default' ? colors.background : 'transparent' },
         ]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         keyboardVerticalOffset={0}
       >
         <View style={{ paddingTop: insets.top + spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs }}>
@@ -419,45 +473,41 @@ export default function ChatScreen() {
           </Text>
         ) : null}
 
-        <Animated.View
+        <View
           style={[
             styles.composer,
             {
               backgroundColor: colors.surface,
               borderTopColor: colors.border,
-              paddingBottom: keyboardVisible ? spacing.sm : Math.max(insets.bottom, spacing.sm),
+              paddingBottom: spacing.sm,
               paddingHorizontal: spacing.md,
               paddingTop: spacing.sm,
             },
-            Platform.OS === 'ios' ? composerAnimatedStyle : undefined,
           ]}
         >
           <PressableScale
-            onPress={() => {
-              if (showStickers) {
-                setShowStickers(false);
-              } else {
-                Keyboard.dismiss();
-                setShowStickers(true);
-              }
-            }}
+            onPress={toggleStickers}
             hitSlop={8}
             scaleTo={0.92}
             accessibilityRole="button"
-            accessibilityLabel="Stickers"
+            accessibilityLabel={showStickers ? 'Keyboard' : 'Stickers'}
             style={styles.iconButton}
           >
             <Ionicons
-              name={showStickers ? 'keypad' : 'happy-outline'}
+              name={showStickers ? 'keypad-outline' : 'happy-outline'}
               size={24}
               color={showStickers ? colors.accent : colors.textFaint}
             />
           </PressableScale>
 
           <TextInput
+            ref={inputRef}
             value={draft}
             onChangeText={setDraft}
-            onFocus={() => setShowStickers(false)}
+            onFocus={() => {
+              pendingStickersRef.current = false;
+              setShowStickers(false);
+            }}
             placeholder="Message"
             placeholderTextColor={colors.textFaint}
             multiline
@@ -496,7 +546,7 @@ export default function ChatScreen() {
               color={draft.trim().length === 0 ? colors.textFaint : colors.onAccent}
             />
           </PressableScale>
-        </Animated.View>
+        </View>
 
         {showStickers ? (
           <StickerPicker

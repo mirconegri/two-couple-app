@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SQLiteProvider } from 'expo-sqlite';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import {
   ThemeProvider as NavigationThemeProvider,
   DarkTheme,
@@ -87,17 +88,19 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <WallpaperProvider>
-            <SQLiteProvider databaseName={DATABASE_NAME} onInit={onInit} useSuspense={false}>
-              <AuthProvider>
-                <SyncProvider>
-                  <RootNavigator />
-                </SyncProvider>
-              </AuthProvider>
-            </SQLiteProvider>
-          </WallpaperProvider>
-        </ThemeProvider>
+        <KeyboardProvider>
+          <ThemeProvider>
+            <WallpaperProvider>
+              <SQLiteProvider databaseName={DATABASE_NAME} onInit={onInit} useSuspense={false}>
+                <AuthProvider>
+                  <SyncProvider>
+                    <RootNavigator />
+                  </SyncProvider>
+                </AuthProvider>
+              </SQLiteProvider>
+            </WallpaperProvider>
+          </ThemeProvider>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
