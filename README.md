@@ -293,18 +293,19 @@ supabase test db      # pgTAP database and RLS tests
 - pgTAP test suites for membership, invitations, messages, and events
 - Local SQLite schema, migrator, repositories, outbox, sync engine
 - Jest tests for backoff, conflict resolution, date/DST handling, error redaction, reminder scheduling
-- All screens, the design system, and the Edge Function
+- All screens, the Material 3 design system, and the Edge Function
+- `npm run typecheck`, `npm test`, `npx expo-doctor`, and `npx expo prebuild --clean --platform android`
 
 ### Not verified in this environment
 
 | Item | Why |
 |---|---|
 | `supabase test db` passing | Requires a linked live project or a local Docker stack |
-| `npm test` output | Requires `npm install` to complete |
-| `tsc --noEmit` clean | Same |
 | EAS build succeeding | Requires an Expo account and FCM credentials |
 | SQLCipher working on device | Must be confirmed on the built APK |
 | Two-device end-to-end flow | Requires two physical phones |
+| Dynamic colour from the wallpaper | Needs the rebuilt APK on Android 12 or newer |
+| Predictive back, haptics, keyboard insets | Only observable on a device |
 
 Nothing in this document claims those steps have been run. Run them, and treat any failure as real.
 
@@ -347,10 +348,9 @@ Step 19 can be done with `curl` using the anon key and a third account's JWT —
 3. **No account transfer.** Losing the account loses the space.
 4. **No recurring events.** Correct recurrence with exceptions and per-instance time zones is a project in itself; v1 prioritises reliability.
 5. **Text-only chat.** No attachments, voice notes, reactions, typing indicators, or read receipts.
-6. **No event editing UI.** Create and delete are implemented; the RPC supports editing and a partner may edit shared events through it, but there is no edit screen yet. This is the most visible gap.
-7. **7-day inactivity pause** unless the optional `pg_cron` keepalive is enabled.
-8. **Push is best-effort.** Aggressive Android battery optimisation (Xiaomi, Huawei, Samsung) can delay delivery — `dontkillmyapp.com` is the relevant reference.
-9. **No iOS build.** Android only, as specified.
+6. **7-day inactivity pause** unless the optional `pg_cron` keepalive is enabled.
+7. **Push is best-effort.** Aggressive Android battery optimisation (Xiaomi, Huawei, Samsung) can delay delivery — `dontkillmyapp.com` is the relevant reference.
+8. **No iOS build.** Android only, as specified.
 
 ---
 
@@ -360,14 +360,17 @@ Step 19 can be done with `curl` using the anon key and a third account's JWT —
 app/                          # Expo Router routes
   (auth)/                     # Sign-in, sign-up
   (onboarding)/               # Create space, join with code
-  (app)/(tabs)/               # Home, chat, calendar, settings
-  (app)/event/                # New event, event detail
+  (app)/(tabs)/               # Home, chat, calendar, notes
+  (app)/event/                # New event, event detail, edit
+  (app)/note/                 # Note detail
+  (app)/                      # Settings, invite, profile
 src/
   auth/AuthProvider.tsx       # Session and membership context
   sync/                       # Engine, remote port, realtime, backoff, merge
   db/                         # SQLite schema, migrator, repositories, outbox
-  components/                 # Design system
-  theme/                      # Tokens and provider (light/dark)
+  components/                 # Material 3 component set
+  theme/                      # Tokens, colour roles, motion, provider
+  settings/                   # Locally stored personalization
   notifications/              # Local reminders, push registration
   utils/                      # Date/DST, error redaction
   __tests__/                  # Jest unit tests
