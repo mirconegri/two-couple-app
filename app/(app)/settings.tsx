@@ -12,7 +12,7 @@ import { ListSection } from '../../src/components/ListSection';
 import { ListRow } from '../../src/components/ListRow';
 import { Text } from '../../src/components/Text';
 import { TopAppBar } from '../../src/components/TopAppBar';
-import { SegmentedButton } from '../../src/components/SegmentedButton';
+import { PickerRow } from '../../src/components/PickerRow';
 import { SwitchRow } from '../../src/components/SwitchRow';
 import { Chip } from '../../src/components/Chip';
 import { PressableScale } from '../../src/components/PressableScale';
@@ -36,7 +36,7 @@ import { clearLocalData, getMeta } from '../../src/db';
 import { registerForPushNotifications, unregisterPushToken } from '../../src/notifications/push';
 import { ensureNotificationPermission } from '../../src/notifications/reminders';
 import { errorMessage } from '../../src/utils/errors';
-import type { ChatDensity, ThemeMode } from '../../src/settings/types';
+import type { CalendarView, ChatDensity, ThemeMode } from '../../src/settings/types';
 import type { WeekStart } from '../../src/utils/date';
 
 const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
@@ -68,6 +68,16 @@ const TEXT_SCALE_LABELS: Record<number, string> = {
   1.15: 'Large',
   1.3: 'Largest',
 };
+
+const CALENDAR_VIEW_OPTIONS: Array<{ value: CalendarView; label: string }> = [
+  { value: 'month', label: 'Month' },
+  { value: 'agenda', label: 'Agenda' },
+];
+
+const WALLPAPER_SCOPE_OPTIONS: Array<{ value: 'chat' | 'all'; label: string }> = [
+  { value: 'chat', label: 'Chat only' },
+  { value: 'all', label: 'Whole app' },
+];
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
@@ -234,13 +244,13 @@ export default function SettingsScreen() {
         </ListSection>
 
         <ListSection title="Appearance">
-          <View style={styles.padded}>
-            <SegmentedButton
-              options={THEME_OPTIONS}
-              value={settings.themeMode}
-              onChange={(themeMode) => update({ themeMode })}
-            />
-          </View>
+          <PickerRow
+            icon="brush-outline"
+            title="Theme"
+            options={THEME_OPTIONS}
+            value={settings.themeMode}
+            onChange={(themeMode) => update({ themeMode })}
+          />
 
           <SwitchRow
             icon="color-palette-outline"
@@ -297,68 +307,54 @@ export default function SettingsScreen() {
           </View>
         </ListSection>
 
-        <ListSection title="Text size">
-          <View style={styles.padded}>
-            <SegmentedButton
-              options={TEXT_SCALE_OPTIONS.map((option) => ({
-                value: String(option),
-                label: TEXT_SCALE_LABELS[option] ?? String(option),
-              }))}
-              value={String(settings.textScale)}
-              onChange={(value) => update({ textScale: Number(value) })}
-            />
-          </View>
+        <ListSection>
+          <PickerRow
+            icon="text-outline"
+            title="Text size"
+            supporting="Scales every label in the app"
+            options={TEXT_SCALE_OPTIONS.map((option) => ({
+              value: String(option),
+              label: TEXT_SCALE_LABELS[option] ?? String(option),
+            }))}
+            value={String(settings.textScale)}
+            onChange={(value) => update({ textScale: Number(value) })}
+          />
         </ListSection>
 
         <ListSection title="Chat">
-          <View style={styles.padded}>
-            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
-              Bubble shape
-            </Text>
-            <SegmentedButton
-              options={BUBBLE_SHAPES}
-              value={settings.bubbleShape}
-              onChange={(bubbleShape) => update({ bubbleShape })}
-            />
-          </View>
+          <PickerRow
+            icon="chatbubble-ellipses-outline"
+            title="Bubble shape"
+            options={BUBBLE_SHAPES}
+            value={settings.bubbleShape}
+            onChange={(bubbleShape) => update({ bubbleShape })}
+          />
 
-          <View style={styles.padded}>
-            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
-              Spacing
-            </Text>
-            <SegmentedButton
-              options={DENSITY_OPTIONS}
-              value={settings.chatDensity}
-              onChange={(chatDensity) => update({ chatDensity })}
-            />
-          </View>
+          <PickerRow
+            icon="resize-outline"
+            title="Spacing"
+            options={DENSITY_OPTIONS}
+            value={settings.chatDensity}
+            onChange={(chatDensity) => update({ chatDensity })}
+          />
         </ListSection>
 
         <ListSection title="Calendar">
-          <View style={styles.padded}>
-            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
-              Week starts on
-            </Text>
-            <SegmentedButton
-              options={WEEK_START_OPTIONS}
-              value={String(settings.calendarStartDay)}
-              onChange={(value) => update({ calendarStartDay: Number(value) as WeekStart })}
-            />
-          </View>
+          <PickerRow
+            icon="calendar-outline"
+            title="Week starts on"
+            options={WEEK_START_OPTIONS}
+            value={String(settings.calendarStartDay)}
+            onChange={(value) => update({ calendarStartDay: Number(value) as WeekStart })}
+          />
 
-          <View style={styles.padded}>
-            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
-              Opens in
-            </Text>
-            <SegmentedButton
-              options={[
-                { value: 'month', label: 'Month' },
-                { value: 'agenda', label: 'Agenda' },
-              ]}
-              value={settings.calendarDefaultView}
-              onChange={(calendarDefaultView) => update({ calendarDefaultView })}
-            />
-          </View>
+          <PickerRow
+            icon="albums-outline"
+            title="Opens in"
+            options={CALENDAR_VIEW_OPTIONS}
+            value={settings.calendarDefaultView}
+            onChange={(calendarDefaultView) => update({ calendarDefaultView })}
+          />
 
           <SwitchRow
             icon="time-outline"
@@ -386,19 +382,13 @@ export default function SettingsScreen() {
         </ListSection>
 
         <ListSection title="Background" footer="Patterns take their colour from the current palette.">
-          <View style={styles.padded}>
-            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
-              Apply to
-            </Text>
-            <SegmentedButton
-              options={[
-                { value: 'chat', label: 'Chat only' },
-                { value: 'all', label: 'Whole app' },
-              ]}
-              value={wallpaperPrefs.scope}
-              onChange={(scope) => void setScope(scope as 'chat' | 'all')}
-            />
-          </View>
+          <PickerRow
+            icon="phone-portrait-outline"
+            title="Apply to"
+            options={WALLPAPER_SCOPE_OPTIONS}
+            value={wallpaperPrefs.scope}
+            onChange={(scope) => void setScope(scope)}
+          />
 
           <View style={styles.padded}>
             <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
