@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Clipboard from 'expo-clipboard';
@@ -8,16 +8,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../src/components/Screen';
 import { Card } from '../../src/components/Card';
 import { Button } from '../../src/components/Button';
-import { NavBarButton } from '../../src/components/NavBarButton';
+import { Text } from '../../src/components/Text';
+import { TopAppBar } from '../../src/components/TopAppBar';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { supabase } from '../../src/lib/supabase';
 import { errorMessage } from '../../src/utils/errors';
 import { formatInviteCode } from '../../src/utils/invite';
+import { iconSize, spacing } from '../../src/theme/tokens';
 
 export default function InviteScreen() {
   const db = useSQLiteContext();
-  const { colors, spacing, typography } = useTheme();
+  const { colors } = useTheme();
   const { coupleId, members, userId, refreshCouple } = useAuth();
 
   const [busy, setBusy] = useState(false);
@@ -26,16 +28,14 @@ export default function InviteScreen() {
   const [invitationId, setInvitationId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Fetch the current couple's members on mount.
   useEffect(() => {
     void refreshCouple(db);
   }, [db, refreshCouple]);
 
-  // Check for any active unrevoked invitation if we don't have a code in memory.
   const loadActiveInvitationId = useCallback(async () => {
     if (!coupleId) return;
     try {
-      const { data, error: invError } = await supabase
+      const { data, error: queryError } = await supabase
         .from('invitations')
         .select('id')
         .eq('couple_id', coupleId)
@@ -46,13 +46,9 @@ export default function InviteScreen() {
         .limit(1);
 
       const first = data?.[0];
-      if (!invError && first) {
-        setInvitationId(first.id);
-      } else {
-        setInvitationId(null);
-      }
+      setInvitationId(!queryError && first ? first.id : null);
     } catch {
-      // Best effort check
+      setInvitationId(null);
     }
   }, [coupleId]);
 
@@ -74,22 +70,7 @@ export default function InviteScreen() {
 
       setInviteCode(code);
       setCopied(false);
-
-      if (coupleId) {
-        const { data: invRows } = await supabase
-          .from('invitations')
-          .select('id')
-          .eq('couple_id', coupleId)
-          .is('used_at', null)
-          .is('revoked_at', null)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        const firstInv = invRows?.[0];
-        if (firstInv) {
-          setInvitationId(firstInv.id);
-        }
-      }
+      await loadActiveInvitationId();
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -106,9 +87,7 @@ export default function InviteScreen() {
     setBusy(true);
     setError(null);
     try {
-      const { error: rpcError } = await supabase.rpc('revoke_invitation', {
-        p_id: invitationId,
-      });
+      const { error: rpcError } = await supabase.rpc('revoke_invitation', { p_id: invitationId });
       if (rpcError) throw new Error(rpcError.message);
 
       setInviteCode(null);
@@ -123,201 +102,147 @@ export default function InviteScreen() {
 
   const copyCode = async () => {
     if (!inviteCode) return;
-    const formatted = formatInviteCode(inviteCode);
-    await Clipboard.setStringAsync(formatted);
+    await Clipboard.setStringAsync(formatInviteCode(inviteCode));
     setCopied(true);
   };
 
   const shareCode = async () => {
     if (!inviteCode) return;
-    const formatted = formatInviteCode(inviteCode);
     await Share.share({
-      message: `Join our private space in Two.\n\nInvitation code:\n${formatted}\n\nThis code works once and expires in 48 hours.`,
+      message: `Join our private space in Two.\n\nInvitation code:\n${formatInviteCode(inviteCode)}\n\nThis code works once and expires in 48 hours.`,
     });
   };
 
-  const isComplete = members.length >= 2;
   const partner = members.find((member) => member.userId !== userId);
-  const partnerLabel = partner?.email || partner?.displayName || 'your partner';
+  const partnerLabel = partner?.displayName || partner?.email || 'your partner';
+  const isComplete = members.length >= 2;
 
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-        <View style={styles.headerRow}>
-          <NavBarButton
-            icon="chevron-back"
-            label="Back"
-            onPress={() => router.back()}
-          />
-        </View>
-
-        <Text
-          style={[
-            typography.displaySmall,
-            { color: colors.onSurface, marginTop: spacing.xs, marginBottom: spacing.sm },
-          ]}
-        >
-          Invite Your Partner
-        </Text>
-
+    <>
+      <TopAppBar title="Invite" onBack={() => router.back()} />
+      <Screen scroll contentStyle={styles.content}>
         {isComplete ? (
-          <Card style={{ marginTop: spacing.xl, paddingVertical: spacing.xl }}>
-            <View style={styles.center}>
-              <Ionicons name="checkmark-circle-outline" size={56} color={colors.secondary} />
-              <Text
-                style={[
-                  typography.headlineMedium,
-                  { color: colors.onSurface, textAlign: 'center', marginTop: spacing.md },
-                ]}
-              >
-                Your space is complete
-              </Text>
-              <Text
-                style={[
-                  typography.bodyLarge,
-                  {
-                    color: colors.onSurfaceVariant,
-                    textAlign: 'center',
-                    marginTop: spacing.sm,
-                  },
-                ]}
-              >
-                Your space is complete — {partnerLabel} has joined
-              </Text>
+          <>
+            <View style={[styles.mark, { backgroundColor: colors.secondaryContainer }]}>
+              <Ionicons name="checkmark" size={iconSize.lg} color={colors.onSecondaryContainer} />
             </View>
-          </Card>
+            <Text variant="headlineMedium" strong style={styles.centered}>
+              Your space is complete
+            </Text>
+            <Text variant="bodyLarge" color="onSurfaceVariant" style={styles.centered}>
+              {partnerLabel} has joined. Nobody else can get in.
+            </Text>
+          </>
         ) : (
-          <View style={{ marginTop: spacing.xl }}>
-            <Text
-              style={[
-                typography.bodyLarge,
-                { color: colors.onSurfaceVariant, marginBottom: spacing.lg },
-              ]}
-            >
-              Share an invitation code with your partner. Once they join, your space
-              is complete and locked to the two of you.
+          <>
+            <Text variant="headlineMedium" strong>
+              Invite your partner
+            </Text>
+            <Text variant="bodyLarge" color="onSurfaceVariant" style={styles.subtitle}>
+              Share an invitation code. Once they join, your space is locked to the two of you.
             </Text>
 
             {inviteCode ? (
-              <View>
-                <Card>
+              <>
+                <Card variant="filled">
                   <Text
                     selectable
-                    style={[
-                      typography.titleMedium,
-                      {
-                        color: colors.onSurface,
-                        letterSpacing: 0.6,
-                        textAlign: 'center',
-                      },
-                    ]}
+                    variant="headlineSmall"
+                    strong
+                    style={[styles.code, { color: colors.onSurface }]}
                   >
                     {formatInviteCode(inviteCode)}
                   </Text>
                 </Card>
 
-                <Text
-                  style={[
-                    typography.bodySmall,
-                    { color: colors.onSurfaceVariant, marginTop: spacing.md, textAlign: 'center' },
-                  ]}
-                >
+                <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.centered}>
                   Expires in 48 hours
                 </Text>
-
-                <Text
-                  style={[
-                    typography.bodySmall,
-                    {
-                      color: colors.outline,
-                      marginTop: spacing.xs,
-                      marginBottom: spacing.lg,
-                      textAlign: 'center',
-                    },
-                  ]}
-                >
-                  This code is shown only once. If you lose it, generate a new one from Settings.
+                <Text variant="bodySmall" color="onSurfaceVariant" style={styles.centered}>
+                  This code is shown only once. If you lose it, generate a new one.
                 </Text>
 
-                <Button
-                  label={copied ? 'Copied' : 'Copy code'}
-                  variant="secondary"
-                  onPress={copyCode}
-                  style={{ marginTop: spacing.sm }}
-                />
-                <Button
-                  label="Share"
-                  variant="secondary"
-                  onPress={shareCode}
-                  style={{ marginTop: spacing.sm }}
-                />
-
-                {invitationId ? (
+                <View style={styles.actions}>
                   <Button
-                    label="Revoke"
-                    variant="danger"
-                    onPress={revokeInvite}
-                    loading={busy}
-                    style={{ marginTop: spacing.md }}
+                    label={copied ? 'Copied' : 'Copy code'}
+                    icon={copied ? 'checkmark' : 'copy'}
+                    variant="tonal"
+                    onPress={copyCode}
+                    fullWidth
                   />
-                ) : null}
-              </View>
+                  <Button
+                    label="Share"
+                    icon="share-outline"
+                    variant="outlined"
+                    onPress={shareCode}
+                    fullWidth
+                  />
+                  {invitationId ? (
+                    <Button
+                      label="Revoke code"
+                      variant="danger"
+                      onPress={revokeInvite}
+                      loading={busy}
+                      fullWidth
+                    />
+                  ) : null}
+                </View>
+              </>
             ) : (
-              <View>
+              <>
                 <Button
-                  label="Generate new invitation code"
-                  variant="primary"
+                  label="Generate invitation code"
                   onPress={generateInvite}
+                  size="medium"
+                  fullWidth
                   loading={busy}
                 />
 
                 {invitationId ? (
-                  <View style={{ marginTop: spacing.xl }}>
-                    <Text
-                      style={[
-                        typography.bodySmall,
-                        { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
-                      ]}
-                    >
-                      An active invitation code exists for this space. Generating a new
-                      code will let you share it again, or you can revoke the existing one.
+                  <>
+                    <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.note}>
+                      An active code already exists for this space. Generate a new one to share it
+                      again, or revoke the existing one.
                     </Text>
                     <Button
-                      label="Revoke"
+                      label="Revoke existing code"
                       variant="danger"
                       onPress={revokeInvite}
                       loading={busy}
+                      fullWidth
                     />
-                  </View>
+                  </>
                 ) : null}
-              </View>
+              </>
             )}
 
             {error ? (
-              <Text
-                style={[
-                  typography.bodySmall,
-                  { color: colors.error, marginTop: spacing.md },
-                ]}
-              >
+              <Text variant="bodySmall" color="error" style={styles.error}>
                 {error}
               </Text>
             ) : null}
-          </View>
+          </>
         )}
-      </View>
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  center: {
+  content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  subtitle: { marginTop: spacing.sm, marginBottom: spacing.xxl },
+  mark: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
   },
+  code: { textAlign: 'center', letterSpacing: 1.5 },
+  centered: { textAlign: 'center', marginTop: spacing.sm },
+  actions: { gap: spacing.sm, marginTop: spacing.xl },
+  note: { marginTop: spacing.xl, marginBottom: spacing.md },
+  error: { marginTop: spacing.md, textAlign: 'center' },
 });

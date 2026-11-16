@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -16,6 +15,7 @@ import Animated, {
 
 import type { Message } from '../types';
 import { useTheme } from '../theme/ThemeProvider';
+import { useSettings } from '../settings/SettingsProvider';
 import { parseStickerMessage } from '../theme/stickers';
 import {
   getCachedSignedStickerUrl,
@@ -23,10 +23,13 @@ import {
   invalidateSignedStickerUrl,
 } from '../theme/stickerStorage';
 import { PressableScale } from './PressableScale';
+import { Text } from './Text';
+import { LoadingIndicator } from './LoadingIndicator';
+import { bubbleShapes, shape, spacing } from '../theme/tokens';
 import { spring } from '../theme/motion';
 
 function StickerMedia({ type, value }: { type: 'image' | 'storage'; value: string }) {
-  const { colors, typography } = useTheme();
+  const { colors } = useTheme();
   const [uri, setUri] = useState<string | null>(() =>
     type === 'storage' ? getCachedSignedStickerUrl(value) : value,
   );
@@ -71,8 +74,8 @@ function StickerMedia({ type, value }: { type: 'image' | 'storage'; value: strin
 
   if (loading) {
     return (
-      <View style={[styles.stickerImage, styles.stickerPlaceholder, { backgroundColor: colors.surfaceContainerHigh }]}>
-        <ActivityIndicator size="small" color={colors.outline} />
+      <View style={[styles.stickerImage, styles.stickerPlaceholder]}>
+        <LoadingIndicator size={24} />
       </View>
     );
   }
@@ -83,19 +86,19 @@ function StickerMedia({ type, value }: { type: 'image' | 'storage'; value: strin
         onPress={
           type === 'storage'
             ? () => {
-                void invalidateSignedStickerUrl(value).then(() => setRetryCount((c) => c + 1));
+                void invalidateSignedStickerUrl(value).then(() => setRetryCount((count) => count + 1));
               }
             : undefined
         }
         disabled={type !== 'storage'}
-        style={[styles.stickerImage, styles.stickerPlaceholder, { backgroundColor: colors.surfaceContainerHigh }]}
+        accessibilityLabel={type === 'storage' ? 'Retry loading sticker' : 'Sticker unavailable'}
+        style={[styles.stickerImage, styles.stickerPlaceholder]}
       >
         <Ionicons
-          name={type === 'storage' ? 'refresh-outline' : 'image-outline'}
-          size={26}
-          color={colors.outline}
+          name={type === 'storage' ? 'refresh' : 'image-outline'}
+          size={24}
+          color={colors.onSurfaceVariant}
         />
-        <Text style={[typography.labelSmall, { color: colors.outline, marginTop: 4 }]}>Sticker</Text>
       </PressableScale>
     );
   }
@@ -106,273 +109,226 @@ function StickerMedia({ type, value }: { type: 'image' | 'storage'; value: strin
       style={styles.stickerImage}
       resizeMode="contain"
       onError={() => {
-        if (type === 'storage') {
-          void invalidateSignedStickerUrl(value);
-        }
+        if (type === 'storage') void invalidateSignedStickerUrl(value);
         setFailed(true);
       }}
     />
   );
 }
 
-interface MessageBubbleProps {
-  message: Message;
-  isMine: boolean;
-  showSenderName: boolean;
-  senderName: string;
-  onRetry: (id: string) => void;
-}
-
-function PendingClock() {
+function PendingClock({ color }: { color: string }) {
+  const { reducedMotion } = useTheme();
   const opacity = useSharedValue(1);
-  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (!reducedMotion) {
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(0.4, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        true,
-      );
+    if (reducedMotion) {
+      opacity.value = 1;
+      return;
     }
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.4, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      true,
+    );
     return () => cancelAnimation(opacity);
   }, [opacity, reducedMotion]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
-    <Animated.View style={[{ marginLeft: 4 }, animatedStyle]}>
-      <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.7)" />
+    <Animated.View style={animatedStyle}>
+      <Ionicons name="time-outline" size={13} color={color} />
     </Animated.View>
   );
 }
 
-function ReceiptChecks({
-  readAt,
-  deliveredAt,
-}: {
-  readAt: string | null;
-  deliveredAt: string | null;
-}) {
-  const isRead = Boolean(readAt);
-  const isDelivered = Boolean(deliveredAt);
-  const wasDeliveredRef = useRef(isDelivered && !isRead);
+/** Read state pops once when the partner opens the chat, so the change is noticed. */
+function ReceiptChecks({ read, delivered, color }: { read: boolean; delivered: boolean; color: string }) {
+  const { colors, reducedMotion } = useTheme();
   const scale = useSharedValue(1);
-  const reducedMotion = useReducedMotion();
+  const wasDelivered = useRef(delivered && !read);
 
   useEffect(() => {
-    if (isRead && wasDeliveredRef.current && !reducedMotion) {
-      scale.value = withSequence(
-        withSpring(1.2, spring.spatialFast),
-        withSpring(1, spring.spatialFast),
-      );
-      wasDeliveredRef.current = false;
+    if (read && wasDelivered.current && !reducedMotion) {
+      scale.value = withSequence(withSpring(1.25, spring.spatialFast), withSpring(1, spring.spatialFast));
+      wasDelivered.current = false;
     }
-  }, [isRead, reducedMotion, scale]);
+  }, [read, reducedMotion, scale]);
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  if (isRead) {
-    return (
-      <Animated.View style={[styles.checksRow, animStyle]}>
-        <Ionicons name="checkmark" size={13} color="#53BDEB" />
-        <Ionicons name="checkmark" size={13} color="#53BDEB" style={{ marginLeft: -8 }} />
-      </Animated.View>
-    );
-  }
-
-  if (isDelivered) {
-    return (
-      <View style={styles.checksRow}>
-        <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.7)" />
-        <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.7)" style={{ marginLeft: -8 }} />
-      </View>
-    );
+  if (!delivered && !read) {
+    return <Ionicons name="checkmark" size={14} color={color} />;
   }
 
   return (
-    <Ionicons
-      name="checkmark"
-      size={13}
-      color="rgba(255,255,255,0.7)"
-      style={{ marginLeft: 4 }}
-    />
+    <Animated.View style={[styles.checks, animatedStyle]}>
+      <Ionicons name="checkmark" size={14} color={read ? colors.primary : color} />
+      <Ionicons
+        name="checkmark"
+        size={14}
+        color={read ? colors.primary : color}
+        style={styles.secondCheck}
+      />
+    </Animated.View>
   );
+}
+
+function StatusRow({
+  message,
+  isMine,
+  color,
+  use24Hour,
+  onRetry,
+}: {
+  message: Message;
+  isMine: boolean;
+  color: string;
+  use24Hour: boolean;
+  onRetry: (id: string) => void;
+}) {
+  const { colors } = useTheme();
+  const pending = message.syncStatus === 'pending';
+  const failed = message.syncStatus === 'failed';
+
+  return (
+    <View style={styles.status}>
+      <Text variant="labelSmall" style={{ color }}>
+        {format(new Date(message.clientCreatedAt), use24Hour ? 'HH:mm' : 'h:mm a')}
+      </Text>
+
+      {!isMine ? null : failed ? (
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel="Message not sent, tap to retry"
+          onPress={() => onRetry(message.id)}
+          hitSlop={12}
+          scaleTo={0.88}
+        >
+          <Ionicons name="alert-circle" size={14} color={colors.error} />
+        </PressableScale>
+      ) : pending ? (
+        <PendingClock color={color} />
+      ) : (
+        <ReceiptChecks read={Boolean(message.readAt)} delivered={Boolean(message.deliveredAt)} color={color} />
+      )}
+    </View>
+  );
+}
+
+export interface MessageBubbleProps {
+  message: Message;
+  isMine: boolean;
+  senderName: string;
+  /** First message of a run from this sender: show the name above it. */
+  isGroupStart: boolean;
+  /** Last message of a run: rounded tail and the status row. */
+  isGroupEnd: boolean;
+  onRetry: (id: string) => void;
 }
 
 export function MessageBubble({
   message,
   isMine,
-  showSenderName,
   senderName,
+  isGroupStart,
+  isGroupEnd,
   onRetry,
 }: MessageBubbleProps) {
-  const { colors, shape, spacing, typography } = useTheme();
-
-  const background = isMine ? colors.bubbleSelf : colors.bubbleOther;
-  const textColor = isMine ? colors.onBubbleSelf : colors.onBubbleOther;
-  const time = format(new Date(message.clientCreatedAt), 'HH:mm');
+  const { colors, reducedMotion } = useTheme();
+  const { settings } = useSettings();
+  const { use24Hour, chatDensity, bubbleShape } = settings;
 
   const failed = message.syncStatus === 'failed';
   const pending = message.syncStatus === 'pending';
-  const stickerData = parseStickerMessage(message.body);
+  const sticker = parseStickerMessage(message.body);
 
-  if (stickerData) {
-    return (
-      <View
-        style={[
-          styles.row,
-          { justifyContent: isMine ? 'flex-end' : 'flex-start' },
-          { marginBottom: spacing.md },
-        ]}
-      >
-        <View style={{ alignItems: isMine ? 'flex-end' : 'flex-start' }}>
-          {showSenderName ? (
-            <Text
-              style={[
-                typography.labelSmall,
-                {
-                  color: colors.onSurfaceVariant,
-                  marginBottom: 2,
-                  marginLeft: isMine ? 0 : spacing.xs,
-                  marginRight: isMine ? spacing.xs : 0,
-                  textAlign: isMine ? 'right' : 'left',
-                },
-              ]}
-            >
-              {senderName}
-            </Text>
-          ) : null}
+  const radius = bubbleShapes[bubbleShape];
+  const corner = isMine ? radius.self : radius.other;
+  const tail = isGroupEnd ? radius.tail : corner;
+  const background = isMine ? colors.bubbleSelf : colors.bubbleOther;
+  const onBubble = isMine ? colors.onBubbleSelf : colors.onBubbleOther;
+  const metaColor = isMine ? colors.onBubbleSelf : colors.onSurfaceVariant;
+  const gap = chatDensity === 'compact' ? 2 : 4;
+  const padding = chatDensity === 'compact' ? spacing.sm : spacing.md;
 
-          <View style={styles.stickerContainer}>
-            {stickerData.type === 'emoji' ? (
-              <Text style={styles.stickerEmoji}>{stickerData.value}</Text>
-            ) : (
-              <StickerMedia type={stickerData.type} value={stickerData.value} />
-            )}
+  const bubbleStyle = {
+    backgroundColor: failed ? colors.errorContainer : background,
+    borderTopLeftRadius: isMine ? corner : tail,
+    borderTopRightRadius: isMine ? tail : corner,
+    borderBottomLeftRadius: isMine ? corner : isGroupEnd ? tail : corner,
+    borderBottomRightRadius: isMine ? (isGroupEnd ? tail : corner) : corner,
+    paddingHorizontal: padding,
+    paddingVertical: chatDensity === 'compact' ? spacing.xs + 2 : spacing.sm + 2,
+  };
 
-            <View style={styles.stickerMetaPill}>
-              <Text style={[typography.labelSmall, { color: '#FFFFFF', fontSize: 10 }]}>{time}</Text>
-              {isMine && pending ? <PendingClock /> : null}
-              {isMine && failed ? (
-                <PressableScale
-                  accessibilityRole="button"
-                  accessibilityLabel="Retry sending"
-                  onPress={() => onRetry(message.id)}
-                  hitSlop={8}
-                  scaleTo={0.9}
-                  style={{ marginLeft: spacing.xs }}
-                >
-                  <Ionicons name="alert-circle" size={12} color={colors.error} />
-                </PressableScale>
-              ) : null}
-              {isMine && !pending && !failed ? (
-                <ReceiptChecks readAt={message.readAt} deliveredAt={message.deliveredAt} />
-              ) : null}
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  }
+  const textColor = failed ? colors.onErrorContainer : onBubble;
 
   return (
     <View
       style={[
         styles.row,
-        { justifyContent: isMine ? 'flex-end' : 'flex-start' },
-        { marginBottom: spacing.sm },
+        {
+          justifyContent: isMine ? 'flex-end' : 'flex-start',
+          marginTop: isGroupStart ? spacing.md : gap,
+        },
       ]}
     >
-      <View style={{ maxWidth: '82%' }}>
-        {showSenderName ? (
+      <View style={styles.column}>
+        {isGroupStart ? (
           <Text
-            style={[
-              typography.labelSmall,
-              {
-                color: colors.onSurfaceVariant,
-                marginBottom: 2,
-                marginLeft: isMine ? 0 : spacing.xs,
-                marginRight: isMine ? spacing.xs : 0,
-                textAlign: isMine ? 'right' : 'left',
-              },
-            ]}
+            variant="labelSmall"
+            color="onSurfaceVariant"
+            style={[styles.sender, isMine ? styles.senderMine : styles.senderOther]}
           >
             {senderName}
           </Text>
         ) : null}
 
-        <View
-          style={[
-            styles.bubble,
-            {
-              backgroundColor: background,
-              borderRadius: shape.xl,
-              paddingHorizontal: spacing.md + 2,
-              paddingVertical: spacing.sm + 1,
-              borderWidth: 0,
-              borderBottomRightRadius: isMine ? shape.xs : shape.xl,
-              borderBottomLeftRadius: isMine ? shape.xl : shape.xs,
-            },
-          ]}
+        <PressableScale
+          onPress={failed ? () => onRetry(message.id) : undefined}
+          disabled={!failed}
+          scaleTo={0.99}
+          rippleRadius={corner}
+          accessibilityRole="text"
+          accessibilityLabel={`${senderName}: ${sticker ? 'sticker' : message.body}. ${format(
+            new Date(message.clientCreatedAt),
+            use24Hour ? 'HH:mm' : 'h:mm a',
+          )}${failed ? '. Not sent' : pending ? '. Sending' : ''}`}
+          style={bubbleStyle}
         >
-          <Text style={[typography.bodyLarge, { color: textColor }]}>{message.body}</Text>
-
-          <View style={[styles.metaRow, { marginTop: spacing.xs }]}>
-            <Text
-              style={[
-                typography.labelSmall,
-                {
-                  color: isMine ? 'rgba(255,255,255,0.7)' : colors.outline,
-                },
-              ]}
-            >
-              {time}
+          {sticker ? (
+            <View style={styles.stickerWrap}>
+              {sticker.type === 'emoji' ? (
+                <Text style={styles.stickerEmoji}>{sticker.value}</Text>
+              ) : (
+                <StickerMedia type={sticker.type} value={sticker.value} />
+              )}
+            </View>
+          ) : (
+            <Text variant="bodyLarge" selectable style={{ color: textColor }}>
+              {message.body}
             </Text>
+          )}
 
-            {isMine && pending ? <PendingClock /> : null}
+          {isGroupEnd ? (
+            <StatusRow
+              message={message}
+              isMine={isMine}
+              color={metaColor}
+              use24Hour={use24Hour}
+              onRetry={onRetry}
+            />
+          ) : null}
+        </PressableScale>
 
-            {isMine && failed ? (
-              <PressableScale
-                accessibilityRole="button"
-                accessibilityLabel="Retry sending"
-                onPress={() => onRetry(message.id)}
-                hitSlop={8}
-                scaleTo={0.9}
-                style={{ marginLeft: spacing.xs }}
-              >
-                <Ionicons name="alert-circle" size={12} color={colors.error} />
-              </PressableScale>
-            ) : null}
-
-            {isMine && !pending && !failed ? (
-              <ReceiptChecks readAt={message.readAt} deliveredAt={message.deliveredAt} />
-            ) : null}
-          </View>
-        </View>
-
-        {failed ? (
-          <PressableScale
-            onPress={() => onRetry(message.id)}
-            hitSlop={8}
-            scaleTo={0.96}
-          >
-            <Text
-              style={[
-                typography.labelSmall,
-                { color: colors.error, marginTop: 2, textAlign: 'right' },
-              ]}
-            >
-              Not sent · tap to retry
-            </Text>
-          </PressableScale>
+        {failed && isGroupEnd ? (
+          <Text variant="labelSmall" color="error" style={styles.failedLabel}>
+            Not sent · tap to retry
+          </Text>
         ) : null}
       </View>
     </View>
@@ -381,35 +337,22 @@ export function MessageBubble({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
-  bubble: { flexShrink: 1 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end' },
-  checksRow: { flexDirection: 'row', alignItems: 'center' },
-  stickerContainer: {
-    position: 'relative',
-    padding: 4,
-  },
-  stickerEmoji: {
-    fontSize: 72,
-    lineHeight: 84,
-  },
-  stickerImage: {
-    width: 130,
-    height: 130,
-    borderRadius: 12,
-  },
-  stickerPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stickerMetaPill: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
+  column: { maxWidth: '84%', flexShrink: 1 },
+  sender: { marginBottom: 2, marginHorizontal: spacing.sm },
+  senderMine: { textAlign: 'right' },
+  senderOther: { textAlign: 'left' },
+  status: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
+    alignSelf: 'flex-end',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
+  checks: { flexDirection: 'row', alignItems: 'center' },
+  secondCheck: { marginLeft: -8 },
+  failedLabel: { marginTop: 2, marginHorizontal: spacing.sm, textAlign: 'right' },
+  stickerWrap: { padding: spacing.xs },
+  stickerEmoji: { fontSize: 64, lineHeight: 76 },
+  stickerImage: { width: 132, height: 132, borderRadius: shape.md },
+  stickerPlaceholder: { alignItems: 'center', justifyContent: 'center' },
 });

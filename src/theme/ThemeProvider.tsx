@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, useColorScheme } from 'react-native';
-import { isDynamicThemeSupported, useMaterial3Theme } from '@pchmn/expo-material3-theme';
+import {
+  createMaterial3Theme,
+  getMaterial3Theme,
+  isDynamicThemeSupported,
+} from '@pchmn/expo-material3-theme';
 import type { TextStyle } from 'react-native';
 
 import { useSettings } from '../settings/SettingsProvider';
@@ -37,14 +41,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const useDynamic = settings.dynamicColor && isDynamicThemeSupported;
-  const themeOptions = useMemo(
-    () =>
-      useDynamic
-        ? { fallbackSourceColor: settings.seedColor }
-        : { sourceColor: settings.seedColor },
+
+  // Building a palette runs the HCT quantiser, so it only happens when an input really changes.
+  const palette = useMemo(
+    () => (useDynamic ? getMaterial3Theme() : createMaterial3Theme(settings.seedColor)),
     [useDynamic, settings.seedColor],
   );
-  const { theme: materialTheme } = useMaterial3Theme(themeOptions);
 
   const scheme: Scheme =
     settings.themeMode === 'system'
@@ -54,8 +56,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       : settings.themeMode;
 
   const colors = useMemo(
-    () => buildColorScheme(materialTheme[scheme], scheme, settings.amoledBlack),
-    [materialTheme, scheme, settings.amoledBlack],
+    () => buildColorScheme(palette[scheme], scheme, settings.amoledBlack),
+    [palette, scheme, settings.amoledBlack],
   );
 
   const typography = useMemo(() => buildTypography(settings.textScale), [settings.textScale]);

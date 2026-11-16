@@ -1,25 +1,27 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import * as Haptics from 'expo-haptics';
 
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { Button } from '../../src/components/Button';
-import { NavBarButton } from '../../src/components/NavBarButton';
+import { Text } from '../../src/components/Text';
+import { TopAppBar } from '../../src/components/TopAppBar';
 import { useAuth } from '../../src/auth/AuthProvider';
-import { useTheme } from '../../src/theme/ThemeProvider';
+import { useHaptics } from '../../src/lib/haptics';
 import { supabase } from '../../src/lib/supabase';
 import { errorMessage } from '../../src/utils/errors';
+import { spacing } from '../../src/theme/tokens';
 
 export default function ProfileScreen() {
   const db = useSQLiteContext();
-  const { colors, spacing, typography } = useTheme();
   const { userId, members, refreshCouple } = useAuth();
+  const haptics = useHaptics();
 
-  const currentMember = members.find((m) => m.userId === userId);
-  const [name, setName] = useState(currentMember?.displayName ?? '');
+  const [name, setName] = useState(
+    () => members.find((member) => member.userId === userId)?.displayName ?? '',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +35,7 @@ export default function ProfileScreen() {
       if (rpcError) throw new Error(rpcError.message);
 
       await refreshCouple(db);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.confirm();
       router.back();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -43,31 +45,10 @@ export default function ProfileScreen() {
   };
 
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-        <View style={styles.headerRow}>
-          <NavBarButton
-            icon="chevron-back"
-            label="Settings"
-            onPress={() => router.back()}
-          />
-        </View>
-
-        <Text
-          style={[
-            typography.displaySmall,
-            { color: colors.onSurface, marginTop: spacing.xs, marginBottom: spacing.sm },
-          ]}
-        >
-          Your Name
-        </Text>
-
-        <Text
-          style={[
-            typography.bodyMedium,
-            { color: colors.onSurfaceVariant, marginBottom: spacing.xl },
-          ]}
-        >
+    <>
+      <TopAppBar title="Your name" onBack={() => router.back()} />
+      <Screen scroll contentStyle={styles.content}>
+        <Text variant="bodyLarge" color="onSurfaceVariant" style={styles.subtitle}>
           Choose what your partner sees in chat, shared events, and notes.
         </Text>
 
@@ -75,26 +56,27 @@ export default function ProfileScreen() {
           label="Display name"
           value={name}
           onChangeText={setName}
-          placeholder="e.g. Alex"
           maxLength={40}
+          autoFocus
           error={error}
         />
 
         <Button
           label="Save"
           onPress={save}
+          size="medium"
+          fullWidth
           loading={busy}
-          style={{ marginTop: spacing.md }}
+          disabled={name.trim().length === 0}
+          style={styles.action}
         />
-      </View>
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
+  content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  subtitle: { marginBottom: spacing.xxl },
+  action: { marginTop: spacing.xl },
 });

@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { Button } from '../../src/components/Button';
+import { Text } from '../../src/components/Text';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { shape, spacing } from '../../src/theme/tokens';
 import { errorMessage } from '../../src/utils/errors';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
-  const { colors, spacing, typography, shape } = useTheme();
+  const { colors } = useTheme();
+  const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,77 +35,82 @@ export default function SignInScreen() {
   };
 
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.xxxl, paddingBottom: spacing.xxxl }}>
-        <View
-          style={[
-            styles.mark,
-            { backgroundColor: colors.primaryContainer, borderRadius: shape.xl },
-          ]}
-        >
-          <Ionicons name="heart-half-outline" size={30} color={colors.primary} />
-        </View>
+    <Screen scroll edges={['top', 'left', 'right', 'bottom']} contentStyle={styles.content}>
+      <View style={[styles.mark, { backgroundColor: colors.primaryContainer }]}>
+        <Ionicons name="heart-half" size={32} color={colors.onPrimaryContainer} />
+      </View>
 
-        <Text style={[typography.displaySmall, { color: colors.onSurface, marginTop: spacing.xl }]}>
-          Two
-        </Text>
-        <Text
-          style={[
-            typography.bodyMedium,
-            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xxxl },
-          ]}
-        >
-          A private space for the two of you. Messages, plans, nothing else.
-        </Text>
+      <Text variant="displaySmall" strong style={styles.title}>
+        Welcome back
+      </Text>
+      <Text variant="bodyLarge" color="onSurfaceVariant" style={styles.subtitle}>
+        A private space for the two of you. Messages, plans, nothing else.
+      </Text>
 
+      <View style={styles.form}>
         <TextField
           label="Email"
           value={email}
           onChangeText={setEmail}
-          placeholder="you@example.com"
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
           inputMode="email"
           textContentType="emailAddress"
+          returnKeyType="next"
         />
+
+        <View style={styles.spacer} />
 
         <TextField
           label="Password"
           value={password}
           onChangeText={setPassword}
-          placeholder="Your password"
           secureTextEntry
           autoCapitalize="none"
           autoComplete="password"
           textContentType="password"
+          returnKeyType="done"
+          onSubmitEditing={submit}
           error={error}
         />
+      </View>
 
+      <Button
+        label="Sign in"
+        onPress={submit}
+        size="medium"
+        fullWidth
+        loading={busy}
+        disabled={email.trim().length === 0 || password.length === 0}
+      />
+
+      <View style={styles.footer}>
+        <Text variant="bodyMedium" color="onSurfaceVariant">
+          No account yet?
+        </Text>
         <Button
-          label="Sign in"
-          onPress={submit}
-          loading={busy}
-          disabled={email.trim().length === 0 || password.length === 0}
+          label="Create one"
+          variant="text"
+          onPress={() => router.push('/(auth)/sign-up')}
         />
-
-        <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>
-          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
-            No account yet?
-          </Text>
-          <Link href="/(auth)/sign-up" asChild>
-            <Pressable hitSlop={8} style={{ paddingVertical: spacing.sm }}>
-              <Text style={[typography.titleMedium, { color: colors.primary }]}>
-                Create one
-              </Text>
-            </Pressable>
-          </Link>
-        </View>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  mark: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center' },
+  content: { paddingTop: spacing.xxxl, paddingBottom: spacing.xxxl, justifyContent: 'center' },
+  mark: {
+    width: 72,
+    height: 72,
+    borderRadius: shape.lgIncreased,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: { marginTop: spacing.xl },
+  subtitle: { marginTop: spacing.sm },
+  form: { marginTop: spacing.xxxl, marginBottom: spacing.xl },
+  spacer: { height: spacing.lg },
+  footer: { marginTop: spacing.xl, alignItems: 'center', gap: spacing.xs },
 });

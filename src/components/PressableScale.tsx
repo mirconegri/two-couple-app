@@ -11,12 +11,13 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 
 import { useHaptics, type SimpleHaptic } from '../lib/haptics';
 import { useTheme } from '../theme/ThemeProvider';
+import { withAlpha } from '../theme/color';
 import { pressSpring } from '../theme/motion';
 import { stateLayer } from '../theme/tokens';
 
 export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
   style?: StyleProp<ViewStyle>;
-  /** Corner radius of the Material ripple; matches the container it fills. */
+  /** Corner radius the ripple is clipped to; must match the surface it fills. */
   rippleRadius?: number;
   scaleTo?: number;
   haptics?: SimpleHaptic | null;
@@ -80,10 +81,15 @@ export const PressableScale = React.forwardRef<View, PressableScaleProps>(
         android_ripple={
           disabled
             ? undefined
-            : { color: colors.onSurface, foreground: true, radius: rippleRadius }
+            : { color: withAlpha(colors.onSurface, stateLayer.pressed), foreground: true }
         }
         android_disableSound
-        style={[style, animatedStyle]}
+        style={[
+          style,
+          // Clipping the foreground ripple to the rounded bounds is the only way to shape it.
+          rippleRadius !== undefined && { borderRadius: rippleRadius, overflow: 'hidden' },
+          animatedStyle,
+        ]}
         {...rest}
       >
         {children}

@@ -1,26 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
-import { Redirect, Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Redirect, Stack, router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { registerForPushNotifications } from '../../src/notifications/push';
 import { LoadingScreen } from '../../src/components/LoadingScreen';
+import { duration } from '../../src/theme/motion';
 
 export default function AppLayout() {
   const { ready, session, coupleId, userId } = useAuth();
-  const { colors } = useTheme();
+  const { colors, reducedMotion } = useTheme();
   const db = useSQLiteContext();
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => sub.remove();
-  }, []);
 
   useEffect(() => {
     if (!coupleId || !userId) return;
@@ -28,20 +20,15 @@ export default function AppLayout() {
     void registerForPushNotifications(coupleId, userId, db);
   }, [coupleId, userId, db]);
 
-  // Deep link from a notification tap.
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data as
-          | { type?: string; eventId?: string }
-          | undefined;
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as
+        | { type?: string; eventId?: string }
+        | undefined;
 
-        if (data?.type === 'chat') router.push('/(app)/(tabs)/chat');
-        if (data?.type === 'event' && data.eventId) {
-          router.push(`/(app)/event/${data.eventId}`);
-        }
-      },
-    );
+      if (data?.type === 'chat') router.push('/(app)/(tabs)/chat');
+      if (data?.type === 'event' && data.eventId) router.push(`/(app)/event/${data.eventId}`);
+    });
 
     return () => subscription.remove();
   }, []);
@@ -50,13 +37,15 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/(auth)/sign-in" />;
   if (!coupleId) return <Redirect href="/(onboarding)/start" />;
 
-  const modalOptions = {
+  const push = {
+    animation: reducedMotion ? ('fade' as const) : ('slide_from_right' as const),
+    animationDuration: reducedMotion ? duration.short4 : duration.medium2,
+  };
+
+  const sheet = {
     presentation: 'modal' as const,
-    sheetAllowedDetents: [0.9, 1.0] as [number, number],
-    sheetGrabberVisible: true,
-    contentStyle: { backgroundColor: colors.surface },
-    animation: reduceMotion ? ('fade' as const) : undefined,
-    animationDuration: reduceMotion ? 150 : 250,
+    animation: reducedMotion ? ('fade' as const) : ('slide_from_bottom' as const),
+    animationDuration: reducedMotion ? duration.short4 : duration.medium2,
   };
 
   return (
@@ -64,47 +53,18 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.surface },
-        animation: reduceMotion ? 'fade' : 'slide_from_right',
-        animationDuration: reduceMotion ? 150 : 250,
-        gestureEnabled: true,
-        fullScreenGestureEnabled: true,
-        animationMatchesGesture: true,
-        gestureDirection: 'horizontal',
+        ...push,
       }}
     >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="event/new" options={modalOptions} />
-      <Stack.Screen
-        name="event/[id]"
-        options={{
-          animation: reduceMotion ? 'fade' : 'slide_from_right',
-          animationDuration: reduceMotion ? 150 : 350,
-        }}
-      />
-      <Stack.Screen name="event/[id]/edit" options={modalOptions} />
-      <Stack.Screen name="note/new" options={modalOptions} />
-      <Stack.Screen name="note/[id]" options={modalOptions} />
-      <Stack.Screen
-        name="invite"
-        options={{
-          ...modalOptions,
-          sheetAllowedDetents: [0.75, 1.0],
-        }}
-      />
-      <Stack.Screen
-        name="profile"
-        options={{
-          ...modalOptions,
-          sheetAllowedDetents: [0.6, 1.0],
-        }}
-      />
-      <Stack.Screen
-        name="settings"
-        options={{
-          ...modalOptions,
-          sheetAllowedDetents: [0.85, 1.0],
-        }}
-      />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="event/new" options={sheet} />
+      <Stack.Screen name="event/[id]" />
+      <Stack.Screen name="event/[id]/edit" options={sheet} />
+      <Stack.Screen name="note/new" options={sheet} />
+      <Stack.Screen name="note/[id]" options={sheet} />
+      <Stack.Screen name="invite" options={sheet} />
+      <Stack.Screen name="profile" options={sheet} />
+      <Stack.Screen name="settings" options={sheet} />
     </Stack>
   );
 }

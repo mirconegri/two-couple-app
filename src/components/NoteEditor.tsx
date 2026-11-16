@@ -1,91 +1,39 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import Animated, {
-  LinearTransition,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSequence,
-  withSpring,
-} from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import React, { useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from './Screen';
 import { Button } from './Button';
-import { NavBarButton } from './NavBarButton';
-import { SegmentedControl } from './SegmentedControl';
+import { Chip } from './Chip';
+import { Text } from './Text';
+import { TopAppBar } from './TopAppBar';
+import { IconButton } from './IconButton';
+import { SegmentedButton } from './SegmentedButton';
 import { PressableScale } from './PressableScale';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useTheme } from '../theme/ThemeProvider';
+import { useHaptics } from '../lib/haptics';
 import { enqueueNote, enqueueNoteDeletion } from '../db/notes';
-import { noteColors } from '../theme/tokens';
+import { noteColors, shape, spacing } from '../theme/tokens';
+import { spring } from '../theme/motion';
 import { newId } from '../lib/id';
 import { errorMessage } from '../utils/errors';
-import { spring } from '../theme/motion';
 import type { Note, NoteChecklistItem, NoteKind } from '../types';
 
 interface NoteEditorProps {
   initialNote?: Note | null;
 }
 
-function CheckItemCheckbox({
-  checked,
-  color,
-  onPress,
-}: {
-  checked: boolean;
-  color: string;
-  onPress: () => void;
-}) {
-  const scale = useSharedValue(1);
-  const reducedMotion = useReducedMotion();
-
-  const handlePress = () => {
-    if (!reducedMotion) {
-      scale.value = withSequence(
-        withSpring(1.15, spring.spatialFast),
-        withSpring(1, spring.spatialFast),
-      );
-    }
-    void Haptics.selectionAsync();
-    onPress();
-  };
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Pressable onPress={handlePress} hitSlop={8} style={styles.checkboxTouch}>
-      <Animated.View style={animStyle}>
-        <Ionicons
-          name={checked ? 'checkbox' : 'square-outline'}
-          size={22}
-          color={color}
-        />
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 export function NoteEditor({ initialNote }: NoteEditorProps) {
   const db = useSQLiteContext();
-  const { colors, shape, spacing, typography } = useTheme();
+  const { colors, reducedMotion, typography } = useTheme();
   const { coupleId, userId } = useAuth();
   const { notifyLocalChange } = useSync();
+  const haptics = useHaptics();
 
   const [title, setTitle] = useState(initialNote?.title ?? '');
   const [kind, setKind] = useState<NoteKind>(initialNote?.kind ?? 'text');
@@ -93,9 +41,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
   const [checklist, setChecklist] = useState<NoteChecklistItem[]>(
     initialNote?.checklist ?? [{ id: newId(), text: '', checked: false }],
   );
-  const [selectedColor, setSelectedColor] = useState<string | null>(
-    initialNote?.color ?? null,
-  );
+  const [selectedColor, setSelectedColor] = useState<string | null>(initialNote?.color ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,18 +55,11 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
     }),
   );
 
-  const itemInputRefs = useRef<{ [key: string]: TextInput | null }>({});
+  const itemInputRefs = useRef<Record<string, TextInput | null>>({});
 
-  const isDirty = () => {
-    const current = JSON.stringify({
-      title,
-      kind,
-      body,
-      checklist,
-      color: selectedColor,
-    });
-    return current !== initialSnapshot.current;
-  };
+  const isDirty = () =>
+    JSON.stringify({ title, kind, body, checklist, color: selectedColor }) !==
+    initialSnapshot.current;
 
   const handleSave = async () => {
     if (!coupleId || !userId) return;
@@ -135,11 +74,6 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
 
     try {
       const now = new Date().toISOString();
-      const cleanChecklist =
-        kind === 'checklist'
-          ? checklist.filter((item) => item.text.trim().length > 0)
-          : null;
-
       const note: Note = {
         id: initialNote?.id ?? newId(),
         coupleId,
@@ -147,7 +81,8 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
         title: trimmedTitle,
         kind,
         body: kind === 'text' ? body : null,
-        checklist: cleanChecklist,
+        checklist:
+          kind === 'checklist' ? checklist.filter((item) => item.text.trim().length > 0) : null,
         color: selectedColor,
         createdAt: initialNote?.createdAt ?? now,
         updatedAt: now,
@@ -157,7 +92,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
 
       await enqueueNote(db, note);
       notifyLocalChange();
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.confirm();
       router.back();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -168,14 +103,10 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
 
   const handleBack = () => {
     if (isDirty() && title.trim().length > 0) {
-      Alert.alert(
-        'Unsaved changes',
-        'Do you want to save your changes before leaving?',
-        [
-          { text: 'Discard', style: 'destructive', onPress: () => router.back() },
-          { text: 'Save', onPress: () => void handleSave() },
-        ],
-      );
+      Alert.alert('Unsaved changes', 'Save this note before leaving?', [
+        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+        { text: 'Save', onPress: () => void handleSave() },
+      ]);
     } else {
       router.back();
     }
@@ -183,8 +114,8 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
 
   const handleDelete = () => {
     if (!initialNote) return;
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-    Alert.alert('Delete note', 'Are you sure you want to delete this note?', [
+    haptics.longPress();
+    Alert.alert('Delete note', 'This note will be removed from both phones.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -205,37 +136,33 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
   };
 
   const addItem = (afterId?: string) => {
-    const newItem: NoteChecklistItem = { id: newId(), text: '', checked: false };
-    if (!afterId) {
-      setChecklist((prev) => [...prev, newItem]);
-    } else {
-      setChecklist((prev) => {
-        const idx = prev.findIndex((i) => i.id === afterId);
-        if (idx === -1) return [...prev, newItem];
-        const next = [...prev];
-        next.splice(idx + 1, 0, newItem);
-        return next;
-      });
-    }
-    setTimeout(() => {
-      itemInputRefs.current[newItem.id]?.focus();
-    }, 50);
+    const item: NoteChecklistItem = { id: newId(), text: '', checked: false };
+    setChecklist((prev) => {
+      if (!afterId) return [...prev, item];
+      const index = prev.findIndex((entry) => entry.id === afterId);
+      if (index === -1) return [...prev, item];
+      const next = [...prev];
+      next.splice(index + 1, 0, item);
+      return next;
+    });
+    setTimeout(() => itemInputRefs.current[item.id]?.focus(), 50);
   };
 
   const updateItemText = (id: string, text: string) => {
-    setChecklist((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, text } : item)),
-    );
+    setChecklist((prev) => prev.map((item) => (item.id === id ? { ...item, text } : item)));
   };
 
   const toggleItemChecked = (id: string) => {
+    haptics.selection();
     setChecklist((prev) => {
       const updated = prev.map((item) =>
         item.id === id ? { ...item, checked: !item.checked } : item,
       );
-      const unchecked = updated.filter((i) => !i.checked);
-      const checked = updated.filter((i) => i.checked);
-      return [...unchecked, ...checked];
+      // Checked items sink to the bottom, the way a paper list behaves.
+      return [
+        ...updated.filter((item) => !item.checked),
+        ...updated.filter((item) => item.checked),
+      ];
     });
   };
 
@@ -244,84 +171,80 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
   };
 
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.lg }}>
-        <View style={styles.headerRow}>
-          <NavBarButton label="Cancel" onPress={handleBack} />
-          <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
-            {initialNote ? 'Edit note' : 'New note'}
-          </Text>
-          <NavBarButton
-            label="Save"
-            bold
+    <>
+      <TopAppBar
+        title={initialNote ? 'Edit note' : 'New note'}
+        onBack={handleBack}
+        actions={
+          <IconButton
+            icon="checkmark"
+            variant="filled"
             onPress={handleSave}
             disabled={busy || title.trim().length === 0}
+            accessibilityLabel="Save note"
           />
-        </View>
+        }
+      />
 
-        {/* Color bar preview if set */}
-        {selectedColor ? (
-          <View
-            style={[
-              styles.colorBar,
-              { backgroundColor: selectedColor, borderRadius: shape.sm },
-            ]}
-          />
-        ) : null}
-
-        {/* Title field */}
+      <Screen scroll contentStyle={styles.content}>
         <TextInput
           value={title}
           onChangeText={setTitle}
           placeholder="Title"
           placeholderTextColor={colors.outline}
           maxLength={200}
-          style={[
-            typography.displaySmall,
-            styles.titleInput,
-            { color: colors.onSurface, borderBottomColor: colors.outlineVariant },
-          ]}
+          selectionColor={colors.primary}
+          cursorColor={colors.primary}
+          style={[typography.headlineMedium, styles.title, { color: colors.onSurface }]}
         />
 
-        {/* Segmented Control */}
-        <SegmentedControl
+        <SegmentedButton
           options={[
             { value: 'text', label: 'Text' },
             { value: 'checklist', label: 'Checklist' },
           ]}
           value={kind}
           onChange={setKind}
-          style={{ marginBottom: spacing.lg }}
         />
 
-        {/* Text Mode */}
         {kind === 'text' ? (
           <TextInput
             value={body}
             onChangeText={setBody}
             placeholder="Write something…"
             placeholderTextColor={colors.outline}
+            selectionColor={colors.primary}
+            cursorColor={colors.primary}
             multiline
-            style={[
-              typography.bodyLarge,
-              styles.bodyInput,
-              { color: colors.onSurface, minHeight: 180 },
-            ]}
+            style={[typography.bodyLarge, styles.body, { color: colors.onSurface }]}
           />
         ) : (
-          /* Checklist Mode */
-          <View style={{ marginTop: spacing.md }}>
+          <View style={styles.checklist}>
             {checklist.map((item) => (
               <Animated.View
                 key={item.id}
-                layout={LinearTransition.springify().damping(spring.spatialDefault.damping).stiffness(spring.spatialDefault.stiffness)}
+                layout={
+                  reducedMotion
+                    ? undefined
+                    : LinearTransition.springify()
+                        .damping(spring.spatialDefault.damping)
+                        .stiffness(spring.spatialDefault.stiffness)
+                }
                 style={styles.checkRow}
               >
-                <CheckItemCheckbox
-                  checked={item.checked}
-                  color={item.checked ? colors.primary : colors.onSurfaceVariant}
+                <Pressable
                   onPress={() => toggleItemChecked(item.id)}
-                />
+                  hitSlop={10}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: item.checked }}
+                  accessibilityLabel={item.text || 'Empty item'}
+                >
+                  <Ionicons
+                    name={item.checked ? 'checkbox' : 'square-outline'}
+                    size={24}
+                    color={item.checked ? colors.primary : colors.onSurfaceVariant}
+                  />
+                </Pressable>
                 <TextInput
                   ref={(ref) => {
                     itemInputRefs.current[item.id] = ref;
@@ -331,6 +254,8 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
                   onSubmitEditing={() => addItem(item.id)}
                   placeholder="Item"
                   placeholderTextColor={colors.outline}
+                  selectionColor={colors.primary}
+                  cursorColor={colors.primary}
                   style={[
                     typography.bodyLarge,
                     styles.itemInput,
@@ -342,10 +267,11 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
                 />
                 <Pressable
                   onPress={() => removeItem(item.id)}
-                  hitSlop={8}
-                  style={styles.deleteTouch}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove item"
                 >
-                  <Ionicons name="close" size={18} color={colors.outline} />
+                  <Ionicons name="close" size={20} color={colors.outline} />
                 </Pressable>
               </Animated.View>
             ))}
@@ -354,146 +280,99 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
               onPress={() => addItem()}
               haptics="selection"
               scaleTo={0.96}
-              style={[styles.addItemRow, { marginTop: spacing.sm }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add item"
+              style={styles.addItem}
             >
               <Ionicons name="add" size={20} color={colors.primary} />
-              <Text
-                style={[
-                  typography.bodyLarge,
-                  { color: colors.primary, marginLeft: spacing.sm },
-                ]}
-              >
+              <Text variant="bodyLarge" color="primary">
                 Add item
               </Text>
             </PressableScale>
           </View>
         )}
 
-        {/* Color picker row */}
-        <View style={{ marginTop: spacing.xl }}>
-          <Text
-            style={[
-              typography.bodySmall,
-              { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
-            ]}
-          >
-            Color
-          </Text>
-          <View style={styles.swatchRow}>
-            {[null, ...noteColors].map((swatch) => {
-              const isSelected = selectedColor === swatch;
-              return (
-                <PressableScale
-                  key={swatch ?? 'none'}
-                  onPress={() => setSelectedColor(swatch)}
-                  haptics="selection"
-                  scaleTo={0.9}
-                  style={[
-                    styles.swatch,
-                    {
-                      backgroundColor: swatch ?? colors.surfaceContainerHigh,
-                      borderColor: isSelected ? colors.onSurface : colors.outlineVariant,
-                      borderWidth: isSelected ? 2 : 1,
-                    },
-                  ]}
-                >
-                  {!swatch ? (
-                    <Ionicons name="ban-outline" size={16} color={colors.onSurfaceVariant} />
-                  ) : isSelected ? (
-                    <Ionicons name="checkmark" size={16} color={colors.onSurface} />
-                  ) : null}
-                </PressableScale>
-              );
-            })}
-          </View>
+        <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
+          Colour
+        </Text>
+        <View style={styles.swatches}>
+          {[null, ...noteColors].map((swatch) => {
+            const selected = selectedColor === swatch;
+            return (
+              <PressableScale
+                key={swatch ?? 'none'}
+                onPress={() => setSelectedColor(swatch)}
+                haptics="selection"
+                scaleTo={0.9}
+                accessibilityRole="button"
+                accessibilityLabel={swatch ? `Colour ${swatch}` : 'No colour'}
+                accessibilityState={{ selected }}
+                style={[
+                  styles.swatch,
+                  {
+                    backgroundColor: swatch ?? colors.surfaceContainerHighest,
+                    borderColor: selected ? colors.onSurface : colors.outlineVariant,
+                    borderWidth: selected ? 2 : 1,
+                  },
+                ]}
+              >
+                {!swatch ? (
+                  <Ionicons name="ban-outline" size={16} color={colors.onSurfaceVariant} />
+                ) : selected ? (
+                  <Ionicons name="checkmark" size={16} color={colors.onSurface} />
+                ) : null}
+              </PressableScale>
+            );
+          })}
         </View>
 
         {initialNote ? (
-          <View style={{ marginTop: spacing.xxl }}>
+          <>
+            <View style={styles.gap} />
             <Button
               label="Delete note"
+              icon="trash-outline"
               variant="danger"
               onPress={handleDelete}
+              size="medium"
+              fullWidth
               loading={busy}
             />
-          </View>
+          </>
         ) : null}
 
         {error ? (
-          <Text
-            style={[
-              typography.bodySmall,
-              { color: colors.error, marginTop: spacing.md },
-            ]}
-          >
+          <Text variant="bodySmall" color="error" style={styles.error}>
             {error}
           </Text>
         ) : null}
-      </View>
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
+  content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  title: { paddingVertical: spacing.sm, marginBottom: spacing.lg },
+  body: { minHeight: 200, textAlignVertical: 'top', marginTop: spacing.lg },
+  checklist: { marginTop: spacing.md },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
+  itemInput: { flex: 1, paddingVertical: spacing.xs },
+  addItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
   },
-  colorBar: {
-    height: 4,
-    width: '100%',
-    marginBottom: 12,
-  },
-  titleInput: {
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginBottom: 16,
-  },
-  segmentContainer: {
-    flexDirection: 'row',
-    padding: 3,
-    marginBottom: 16,
-  },
-  segmentButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  bodyInput: {
-    textAlignVertical: 'top',
-    paddingTop: 8,
-  },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  checkboxTouch: {
-    marginRight: 10,
-  },
-  itemInput: {
-    flex: 1,
-    paddingVertical: 4,
-  },
-  deleteTouch: {
-    padding: 4,
-  },
-  addItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  label: { marginTop: spacing.xxl, marginBottom: spacing.md },
+  swatches: { flexDirection: 'row', gap: spacing.md },
   swatch: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
+    width: 36,
+    height: 36,
+    borderRadius: shape.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  gap: { height: spacing.xxl },
+  error: { marginTop: spacing.md },
 });

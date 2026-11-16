@@ -1,9 +1,9 @@
 import type { BubbleShapeKey } from '../theme/tokens';
 import { DEFAULT_SEED_COLOR } from '../theme/tokens';
+import type { WeekStart } from '../utils/date';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type CalendarView = 'month' | 'agenda';
-export type WeekStart = 0 | 1 | 6;
 export type ChatDensity = 'cozy' | 'compact';
 
 export interface Settings {

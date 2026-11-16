@@ -1,31 +1,32 @@
 import React, { useState } from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { Button } from '../../src/components/Button';
-import { NavBarButton } from '../../src/components/NavBarButton';
+import { Text } from '../../src/components/Text';
+import { TopAppBar } from '../../src/components/TopAppBar';
 import { useAuth } from '../../src/auth/AuthProvider';
-import { useTheme } from '../../src/theme/ThemeProvider';
 import { supabase } from '../../src/lib/supabase';
+import { spacing } from '../../src/theme/tokens';
 import { errorMessage } from '../../src/utils/errors';
 
 export default function JoinSpaceScreen() {
   const db = useSQLiteContext();
   const { refreshCouple } = useAuth();
-  const { colors, spacing, typography } = useTheme();
 
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const cleanCode = code.replace(/\s+/g, '');
+
   const redeem = async () => {
     setBusy(true);
     setError(null);
     try {
-      const cleanCode = code.replace(/\s+/g, '');
       const { error: rpcError } = await supabase.rpc('redeem_invitation', {
         p_code: cleanCode,
       });
@@ -41,23 +42,13 @@ export default function JoinSpaceScreen() {
   };
 
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-        <View style={{ marginBottom: spacing.md }}>
-          <NavBarButton
-            icon="chevron-back"
-            label="Back"
-            onPress={() => router.back()}
-          />
-        </View>
-
-        <Text style={[typography.displaySmall, { color: colors.onSurface }]}>Join the space</Text>
-        <Text
-          style={[
-            typography.bodyMedium,
-            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xxl },
-          ]}
-        >
+    <>
+      <TopAppBar title="Join the space" onBack={() => router.back()} />
+      <Screen scroll contentStyle={styles.content}>
+        <Text variant="headlineMedium" strong>
+          Join the space
+        </Text>
+        <Text variant="bodyLarge" color="onSurfaceVariant" style={styles.subtitle}>
           Paste the invitation code your partner sent you.
         </Text>
 
@@ -65,32 +56,37 @@ export default function JoinSpaceScreen() {
           label="Invitation code"
           value={code}
           onChangeText={setCode}
-          placeholder="Paste the code"
           autoCapitalize="none"
           autoCorrect={false}
           multiline
           numberOfLines={3}
           error={error}
-          style={{ minHeight: 80, textAlignVertical: 'top' }}
+          style={styles.code}
         />
 
-        <Button
-          label="Join"
-          onPress={redeem}
-          loading={busy}
-          disabled={code.replace(/\s+/g, '').length < 16}
-        />
+        <View style={styles.action}>
+          <Button
+            label="Join"
+            onPress={redeem}
+            size="medium"
+            fullWidth
+            loading={busy}
+            disabled={cleanCode.length < 16}
+          />
+        </View>
 
-        <Text
-          style={[
-            typography.bodySmall,
-            { color: colors.outline, marginTop: spacing.lg },
-          ]}
-        >
-          Codes expire after 48 hours and can only be used once. A space holds exactly
-          two people.
+        <Text variant="bodySmall" color="onSurfaceVariant" style={styles.footnote}>
+          Codes expire after 48 hours and can only be used once. A space holds exactly two people.
         </Text>
-      </View>
-    </Screen>
+      </Screen>
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  subtitle: { marginTop: spacing.sm, marginBottom: spacing.xxl },
+  code: { height: 96, textAlignVertical: 'top', paddingTop: spacing.md },
+  action: { marginTop: spacing.xl },
+  footnote: { marginTop: spacing.lg },
+});

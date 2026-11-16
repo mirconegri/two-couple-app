@@ -6,7 +6,8 @@ import { useSettings } from '../settings/SettingsProvider';
 export interface HapticsApi {
   selection: () => void;
   light: () => void;
-  toggle: (on: boolean) => void;
+  toggleOn: () => void;
+  toggleOff: () => void;
   confirm: () => void;
   reject: () => void;
   longPress: () => void;
@@ -15,8 +16,8 @@ export interface HapticsApi {
   tick: () => void;
 }
 
-/** Haptic roles that need no argument, so they can be named in a prop. */
-export type SimpleHaptic = Exclude<keyof HapticsApi, 'toggle'>;
+/** Haptic role names, so a component can ask for one by name. */
+export type SimpleHaptic = keyof HapticsApi;
 
 /** Material 3 feedback roles mapped onto Android's predefined haptic effects. */
 export function useHaptics(): HapticsApi {
@@ -31,8 +32,8 @@ export function useHaptics(): HapticsApi {
     return {
       selection: () => run(Haptics.AndroidHaptics.Context_Click),
       light: () => run(Haptics.AndroidHaptics.Virtual_Key),
-      toggle: (on: boolean) =>
-        run(on ? Haptics.AndroidHaptics.Toggle_On : Haptics.AndroidHaptics.Toggle_Off),
+      toggleOn: () => run(Haptics.AndroidHaptics.Toggle_On),
+      toggleOff: () => run(Haptics.AndroidHaptics.Toggle_Off),
       confirm: () => run(Haptics.AndroidHaptics.Confirm),
       reject: () => run(Haptics.AndroidHaptics.Reject),
       longPress: () => run(Haptics.AndroidHaptics.Long_Press),

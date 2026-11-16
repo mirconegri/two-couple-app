@@ -1,21 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, FlatList, Image, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as Haptics from 'expo-haptics';
 
 import { useAuth } from '../auth/AuthProvider';
 import { useTheme } from '../theme/ThemeProvider';
+import { useHaptics } from '../lib/haptics';
 import { PressableScale } from './PressableScale';
+import { IconButton } from './IconButton';
+import { Text } from './Text';
+import { Button } from './Button';
+import { LoadingIndicator } from './LoadingIndicator';
+import { EmptyState } from './EmptyState';
 import {
   type Sticker,
   type StickerPack,
@@ -29,12 +25,14 @@ import {
   addCustomSticker,
 } from '../theme/stickers';
 import { getSignedStickerUrl, uploadStickerToStorage } from '../theme/stickerStorage';
+import { shape, spacing } from '../theme/tokens';
 
-interface StickerPickerProps {
+export interface StickerPickerProps {
   onSelect: (sticker: Sticker) => void;
   onClose: () => void;
 }
 
+/** Local custom stickers are stored as a file URI and only get a signed URL once uploaded. */
 function PickerStickerImage({ sticker }: { sticker: Sticker }) {
   const [uri, setUri] = useState<string | undefined>(sticker.imageUri);
 
@@ -42,28 +40,34 @@ function PickerStickerImage({ sticker }: { sticker: Sticker }) {
     setUri(sticker.imageUri);
   }, [sticker.imageUri]);
 
-  const handleError = () => {
-    if (sticker.storagePath && uri === sticker.imageUri) {
-      void getSignedStickerUrl(sticker.storagePath).then((signed) => {
-        if (signed) setUri(signed);
-      });
-    }
-  };
-
   if (!uri) return null;
+
   return (
     <Image
       source={{ uri }}
       style={styles.customImage}
       resizeMode="contain"
-      onError={handleError}
+      onError={() => {
+        if (sticker.storagePath && uri === sticker.imageUri) {
+          void getSignedStickerUrl(sticker.storagePath).then((signed) => {
+            if (signed) setUri(signed);
+          });
+        }
+      }}
     />
   );
 }
 
+const EMPTY_COPY: Partial<Record<StickerPack['id'], string>> = {
+  recents: 'Stickers you send show up here.',
+  favorites: 'Tap the star on a sticker to keep it here.',
+  custom: 'Add your own pictures from the gallery.',
+};
+
 export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
   const { coupleId } = useAuth();
-  const { colors, spacing, shape, typography } = useTheme();
+  const { colors } = useTheme();
+  const haptics = useHaptics();
 
   const [activeTab, setActiveTab] = useState<StickerPack['id']>('love');
   const [recents, setRecents] = useState<Sticker[]>([]);
@@ -72,252 +76,204 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
   const [uploading, setUploading] = useState(false);
 
   const reloadLists = useCallback(async () => {
-    const [r, f, c] = await Promise.all([
+    const [recent, favorite, custom] = await Promise.all([
       loadRecentStickers(),
       loadFavoriteStickers(),
       loadCustomStickers(),
     ]);
-    setRecents(r);
-    setFavorites(f);
-    setCustomStickers(c);
+    setRecents(recent);
+    setFavorites(favorite);
+    setCustomStickers(custom);
   }, []);
 
   useEffect(() => {
     void reloadLists();
   }, [reloadLists]);
 
-  const handleSelect = async (sticker: Sticker) => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await addRecentSticker(sticker);
-    void reloadLists();
-    onSelect(sticker);
-  };
+  const handleSelect = useCallback(
+    async (sticker: Sticker) => {
+      haptics.light();
+      await addRecentSticker(sticker);
+      void reloadLists();
+      onSelect(sticker);
+    },
+    [haptics, onSelect, reloadLists],
+  );
 
   const handleToggleFavorite = async (sticker: Sticker) => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const updated = await toggleFavoriteSticker(sticker);
-    setFavorites(updated);
+    haptics.longPress();
+    setFavorites(await toggleFavoriteSticker(sticker));
   };
 
   const handleAddFromGallery = async () => {
     if (uploading) return;
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow gallery access to pick a picture for a sticker.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+      base64: true,
+    });
+
+    const asset = result.assets?.[0];
+    if (result.canceled || !asset?.uri) return;
+
+    setUploading(true);
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(
-          'Permesso richiesto',
-          "Consenti l'accesso alla galleria per scegliere o importare sticker.",
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 1,
-        base64: true,
-      });
-
-      const asset = result.assets?.[0];
-      if (!result.canceled && asset?.uri) {
-        setUploading(true);
-        try {
-          let storagePath: string | undefined;
-          if (coupleId) {
-            storagePath = await uploadStickerToStorage(coupleId, asset.uri, {
-              base64: asset.base64,
-              mimeType: asset.mimeType,
-            });
-          }
-          const added = await addCustomSticker(asset.uri, 'Sticker', storagePath);
-          await handleSelect(added);
-        } catch (uploadErr) {
-          Alert.alert(
-            'Upload non riuscito',
-            uploadErr instanceof Error ? uploadErr.message : 'Controlla la connessione e riprova.',
-          );
-        } finally {
-          setUploading(false);
-        }
-      }
-    } catch {
-      Alert.alert('Errore', "Impossibile caricare l'immagine.");
+      const storagePath = coupleId
+        ? await uploadStickerToStorage(coupleId, asset.uri, {
+            base64: asset.base64,
+            mimeType: asset.mimeType,
+          })
+        : undefined;
+      await handleSelect(await addCustomSticker(asset.uri, 'Custom sticker', storagePath));
+    } catch (caught) {
+      Alert.alert(
+        'Upload failed',
+        caught instanceof Error ? caught.message : 'Check your connection and try again.',
+      );
+    } finally {
+      setUploading(false);
     }
   };
 
-  let displayStickers: Sticker[] = [];
-  if (activeTab === 'recents') {
-    displayStickers = recents;
-  } else if (activeTab === 'favorites') {
-    displayStickers = favorites;
-  } else if (activeTab === 'custom') {
-    displayStickers = customStickers;
-  } else {
-    displayStickers = BUILTIN_STICKERS.filter((s) => s.packId === activeTab);
-  }
+  const stickers =
+    activeTab === 'recents'
+      ? recents
+      : activeTab === 'favorites'
+        ? favorites
+        : activeTab === 'custom'
+          ? customStickers
+          : BUILTIN_STICKERS.filter((sticker) => sticker.packId === activeTab);
 
-  const isFavorite = (id: string) => favorites.some((f) => f.id === id);
+  const addButton = (
+    <Button
+      label={uploading ? 'Uploading…' : 'Add from gallery'}
+      icon="image-outline"
+      variant="tonal"
+      onPress={handleAddFromGallery}
+      disabled={uploading}
+      loading={uploading}
+    />
+  );
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.surfaceContainerLow,
-          borderTopColor: colors.outlineVariant,
-        },
-      ]}
-    >
-      {/* Header bar */}
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={[typography.bodyMedium, { color: colors.onSurface, fontWeight: '600' }]}>
-          Stickers
-        </Text>
-        <PressableScale
-          onPress={onClose}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Chiudi pannello sticker"
-        >
-          <Ionicons name="close-circle" size={24} color={colors.outline} />
-        </PressableScale>
+        <Text variant="titleSmall">Stickers</Text>
+        <IconButton icon="close" size="sm" onPress={onClose} accessibilityLabel="Close stickers" />
       </View>
 
-      {/* Tabs list */}
-      <View style={styles.tabsRow}>
+      <View style={styles.tabs}>
         {STICKER_PACKS.map((pack) => {
-          const isSelected = activeTab === pack.id;
+          const selected = activeTab === pack.id;
           return (
-            <TouchableOpacity
+            <PressableScale
               key={pack.id}
               onPress={() => {
-                void Haptics.selectionAsync();
+                haptics.tick();
                 setActiveTab(pack.id);
               }}
-              style={[
-                styles.tabButton,
-                {
-                  backgroundColor: isSelected ? colors.surfaceContainerHigh : 'transparent',
-                  borderBottomColor: isSelected ? colors.primary : 'transparent',
-                  borderBottomWidth: isSelected ? 2 : 0,
-                },
-              ]}
+              accessibilityRole="tab"
+              accessibilityLabel={pack.title}
+              accessibilityState={{ selected }}
+              scaleTo={0.9}
+              rippleRadius={shape.full}
+              style={styles.tab}
             >
-              <Ionicons
-                name={pack.icon as any}
-                size={20}
-                color={isSelected ? colors.primary : colors.outline}
-              />
-            </TouchableOpacity>
+              <View
+                style={[
+                  styles.tabIndicator,
+                  selected && { backgroundColor: colors.secondaryContainer },
+                ]}
+              >
+                <Ionicons
+                  name={pack.icon as keyof typeof Ionicons.glyphMap}
+                  size={22}
+                  color={selected ? colors.onSecondaryContainer : colors.onSurfaceVariant}
+                />
+              </View>
+            </PressableScale>
           );
         })}
       </View>
 
-      {/* Sticker grid or empty state */}
-      {displayStickers.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons
-            name={
+      {stickers.length === 0 ? (
+        <View style={styles.empty}>
+          <EmptyState
+            icon={
               activeTab === 'recents'
                 ? 'time-outline'
                 : activeTab === 'favorites'
                   ? 'star-outline'
                   : 'images-outline'
             }
-            size={40}
-            color={colors.outline}
+            title="Nothing here yet"
+            description={EMPTY_COPY[activeTab] ?? 'No stickers in this pack.'}
           />
-          <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: spacing.sm }]}>
-            {activeTab === 'recents'
-              ? 'Nessun recente. Gli ultimi 20 sticker usati appariranno qui!'
-              : activeTab === 'favorites'
-                ? 'Nessun preferito. Tieni premuto o tocca la stella su qualsiasi sticker!'
-                : 'Nessuno sticker personalizzato aggiunto.'}
-          </Text>
-          {activeTab === 'custom' ? (
-            <PressableScale
-              onPress={handleAddFromGallery}
-              disabled={uploading}
-              style={[
-                styles.addButton,
-                { backgroundColor: colors.primary, borderRadius: shape.full, marginTop: spacing.md },
-              ]}
-            >
-              {uploading ? (
-                <ActivityIndicator size="small" color={colors.onPrimary} />
-              ) : (
-                <Ionicons name="add" size={18} color={colors.onPrimary} />
-              )}
-              <Text style={[typography.bodyLarge, { color: colors.onPrimary, fontWeight: '600', marginLeft: 6 }]}>
-                {uploading ? 'Caricamento...' : 'Aggiungi da galleria / WhatsApp'}
-              </Text>
-            </PressableScale>
-          ) : null}
+          {activeTab === 'custom' ? addButton : null}
         </View>
       ) : (
         <FlatList
-          data={displayStickers}
+          data={stickers}
           keyExtractor={(item) => item.id}
           numColumns={4}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: spacing.sm, paddingBottom: spacing.xxxl }}
+          contentContainerStyle={styles.grid}
           renderItem={({ item }) => {
-            const fav = isFavorite(item.id);
+            const favorite = favorites.some((entry) => entry.id === item.id);
             return (
               <View style={styles.gridItem}>
-                <TouchableOpacity
+                <PressableScale
                   onPress={() => void handleSelect(item)}
                   onLongPress={() => void handleToggleFavorite(item)}
-                  style={[
-                    styles.stickerTouch,
-                    {
-                      backgroundColor: colors.surfaceContainerHigh,
-                      borderRadius: shape.lg,
-                    },
-                  ]}
-                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                  scaleTo={0.9}
+                  haptics={null}
+                  rippleRadius={shape.lg}
+                  style={[styles.cell, { backgroundColor: colors.surfaceContainerHigh }]}
                 >
                   {item.imageUri || item.storagePath ? (
                     <PickerStickerImage sticker={item} />
                   ) : (
-                    <Text style={styles.emojiText}>{item.emoji}</Text>
+                    <Text style={styles.emoji}>{item.emoji}</Text>
                   )}
-                </TouchableOpacity>
+                </PressableScale>
 
-                {/* Favorite toggle badge */}
-                <TouchableOpacity
+                <PressableScale
                   onPress={() => void handleToggleFavorite(item)}
-                  style={styles.favBadge}
-                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    favorite ? `Remove ${item.label} from favourites` : `Add ${item.label} to favourites`
+                  }
+                  hitSlop={6}
+                  scaleTo={0.8}
+                  haptics={null}
+                  style={styles.favorite}
                 >
                   <Ionicons
-                    name={fav ? 'star' : 'star-outline'}
+                    name={favorite ? 'star' : 'star-outline'}
                     size={14}
-                    color={fav ? '#FFCC00' : colors.outline}
+                    color={favorite ? colors.primary : colors.onSurfaceVariant}
                   />
-                </TouchableOpacity>
+                </PressableScale>
               </View>
             );
           }}
           ListFooterComponent={
-            activeTab === 'custom' ? (
-              <PressableScale
-                onPress={handleAddFromGallery}
-                disabled={uploading}
-                style={[
-                  styles.addButton,
-                  { backgroundColor: colors.primary, borderRadius: shape.full, marginVertical: spacing.md },
-                ]}
-              >
-                {uploading ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
-                ) : (
-                  <Ionicons name="add" size={18} color={colors.onPrimary} />
-                )}
-                <Text style={[typography.bodyLarge, { color: colors.onPrimary, fontWeight: '600', marginLeft: 6 }]}>
-                  {uploading ? 'Caricamento...' : 'Aggiungi altro da galleria'}
-                </Text>
-              </PressableScale>
+            activeTab === 'custom' && !uploading ? (
+              <View style={styles.footer}>{addButton}</View>
+            ) : uploading ? (
+              <View style={styles.footer}>
+                <LoadingIndicator size={20} />
+              </View>
             ) : null
           }
         />
@@ -327,68 +283,30 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    height: 310,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  container: { height: 320 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  tabsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128,128,128,0.2)',
-  },
-  tabButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  gridItem: {
-    flex: 1 / 4,
-    aspectRatio: 1,
-    padding: 6,
-    position: 'relative',
-  },
-  stickerTouch: {
-    flex: 1,
+  tabs: { flexDirection: 'row', paddingHorizontal: spacing.sm, gap: spacing.xs },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: spacing.xs },
+  tabIndicator: {
+    width: 56,
+    height: 32,
+    borderRadius: shape.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emojiText: {
-    fontSize: 38,
-  },
-  customImage: {
-    width: '80%',
-    height: '80%',
-  },
-  favBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 10,
-    padding: 2,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    alignSelf: 'center',
-  },
+  empty: { flex: 1, justifyContent: 'center', gap: spacing.md },
+  grid: { padding: spacing.sm, paddingBottom: spacing.xxl },
+  gridItem: { flex: 1 / 4, aspectRatio: 1, padding: spacing.xs },
+  cell: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: shape.lg },
+  emoji: { fontSize: 36, lineHeight: 44 },
+  customImage: { width: '78%', height: '78%' },
+  favorite: { position: 'absolute', top: spacing.sm, right: spacing.sm, padding: 2 },
+  footer: { alignItems: 'center', paddingVertical: spacing.md },
 });

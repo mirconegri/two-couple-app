@@ -1,25 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Screen } from '../../src/components/Screen';
 import { ListSection } from '../../src/components/ListSection';
 import { ListRow } from '../../src/components/ListRow';
-import { StatusPill } from '../../src/components/StatusPill';
-import { NavBarButton } from '../../src/components/NavBarButton';
-import { SegmentedControl } from '../../src/components/SegmentedControl';
+import { Text } from '../../src/components/Text';
+import { TopAppBar } from '../../src/components/TopAppBar';
+import { SegmentedButton } from '../../src/components/SegmentedButton';
+import { SwitchRow } from '../../src/components/SwitchRow';
+import { Chip } from '../../src/components/Chip';
 import { PressableScale } from '../../src/components/PressableScale';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useSync } from '../../src/sync/SyncProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useWallpaper } from '../../src/theme/WallpaperProvider';
 import { WALLPAPER_PRESETS } from '../../src/theme/wallpaper';
-import { seedPalette } from '../../src/theme/tokens';
+import { seedPalette, shape, spacing } from '../../src/theme/tokens';
 import { useSettings } from '../../src/settings/SettingsProvider';
+import { TEXT_SCALE_OPTIONS } from '../../src/settings/types';
+import { useHaptics } from '../../src/lib/haptics';
 import {
   loadNotificationSound,
   saveNotificationSound,
@@ -31,55 +36,86 @@ import { clearLocalData, getMeta } from '../../src/db';
 import { registerForPushNotifications, unregisterPushToken } from '../../src/notifications/push';
 import { ensureNotificationPermission } from '../../src/notifications/reminders';
 import { errorMessage } from '../../src/utils/errors';
+import type { ChatDensity, ThemeMode } from '../../src/settings/types';
+import type { WeekStart } from '../../src/utils/date';
+
+const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+const WEEK_START_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '1', label: 'Monday' },
+  { value: '0', label: 'Sunday' },
+  { value: '6', label: 'Saturday' },
+];
+
+const BUBBLE_SHAPES: Array<{ value: 'expressive' | 'rounded' | 'square'; label: string }> = [
+  { value: 'expressive', label: 'Expressive' },
+  { value: 'rounded', label: 'Rounded' },
+  { value: 'square', label: 'Square' },
+];
+
+const DENSITY_OPTIONS: Array<{ value: ChatDensity; label: string }> = [
+  { value: 'cozy', label: 'Cozy' },
+  { value: 'compact', label: 'Compact' },
+];
+
+const TEXT_SCALE_LABELS: Record<number, string> = {
+  0.85: 'Small',
+  1: 'Default',
+  1.15: 'Large',
+  1.3: 'Largest',
+};
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
-  const { colors, spacing, typography, scheme } = useTheme();
+  const { colors, scheme } = useTheme();
   const { settings, update } = useSettings();
   const { email, userId, coupleId, members, signOut, refreshCouple } = useAuth();
   const { pendingCount, realtimeStatus, lastSyncedAt, syncing, syncNow } = useSync();
   const { prefs: wallpaperPrefs, setPreset, setCustomPhoto, setScope, resetToDefault } = useWallpaper();
+  const haptics = useHaptics();
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pushStatus, setPushStatus] = useState<string>('Checking…');
+  const [pushStatus, setPushStatus] = useState('Checking…');
   const [selectedSound, setSelectedSound] = useState<NotificationSoundId>('default');
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
   useEffect(() => {
-    void getMeta(db, 'push_token_status').then((val) => {
-      setPushStatus(val || 'Not registered');
-    });
-    void loadNotificationSound().then((snd) => setSelectedSound(snd));
+    void getMeta(db, 'push_token_status').then((value) => setPushStatus(value || 'Not registered'));
+    void loadNotificationSound().then(setSelectedSound);
   }, [db]);
 
   const handleSelectSound = async (soundId: NotificationSoundId) => {
     setSelectedSound(soundId);
     await saveNotificationSound(soundId);
-    void playSoundPreview(soundId);
+    void playSoundPreview(soundId, settings.haptics);
   };
 
   const handlePickCustomWallpaper = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(
-          'Permesso richiesto',
-          'Consenti l\'accesso alla galleria per impostare una foto come sfondo.',
-        );
-        return;
-      }
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow gallery access to use one of your photos as a background.');
+      return;
+    }
 
+    try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.85,
       });
-
-      if (!result.canceled && result.assets?.[0]?.uri) {
-        await setCustomPhoto(result.assets[0].uri);
-      }
+      const asset = result.assets?.[0];
+      if (!result.canceled && asset?.uri) await setCustomPhoto(asset.uri);
     } catch {
-      Alert.alert('Errore', 'Impossibile selezionare la foto dalla galleria.');
+      Alert.alert('Could not open the gallery', 'Try again, or pick a different photo.');
     }
   };
 
@@ -135,17 +171,12 @@ export default function SettingsScreen() {
 
   const handleTestNotification = async () => {
     try {
-      const granted = await ensureNotificationPermission();
-      if (!granted) {
-        Alert.alert('Permission required', 'Please enable notifications in system settings.');
+      if (!(await ensureNotificationPermission())) {
+        Alert.alert('Permission needed', 'Enable notifications for Two in the system settings.');
         return;
       }
       await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Two',
-          body: 'Notifications are working properly!',
-          sound: 'default',
-        },
+        content: { title: 'Two', body: 'Notifications are working.', sound: 'default' },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes?.DATE ?? 'date',
           date: new Date(Date.now() + 3000),
@@ -162,394 +193,399 @@ export default function SettingsScreen() {
     if (!coupleId || !userId) return;
     setBusy(true);
     setPushStatus('Registering…');
-    const res = await registerForPushNotifications(coupleId, userId, db);
+    const result = await registerForPushNotifications(coupleId, userId, db);
     const updated = await getMeta(db, 'push_token_status');
-    setPushStatus(updated || (res.ok ? 'Active (token registered)' : res.reason || 'Failed'));
+    setPushStatus(updated || (result.ok ? 'Active' : result.reason || 'Failed'));
     setBusy(false);
   };
 
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-        {/* Navigation header */}
-        <View style={styles.navHeader}>
-          <NavBarButton
-            icon="chevron-back"
-            label="Home"
-            onPress={() => router.back()}
-          />
-        </View>
+    <>
+      <TopAppBar title="Settings" scrollY={scrollY} onBack={() => router.back()} />
 
-        {/* Large Title */}
-        <Text style={[typography.displaySmall, { color: colors.onSurface, marginBottom: spacing.lg }]}>
-          Settings
-        </Text>
-
-        {/* Profile & Space Section */}
-        <ListSection title="Space & Profile">
+      <Screen scroll onScroll={scrollHandler} contentStyle={styles.content}>
+        <ListSection title="Your space">
           <ListRow
-            label="Your name"
-            value={me?.displayName ?? 'Not set'}
             icon="person"
-            iconBg={colors.primary}
+            title="Your name"
+            value={me?.displayName ?? 'Not set'}
             chevron
             onPress={() => router.push('/(app)/profile')}
           />
+          <ListRow icon="mail" title="Signed in as" value={email ?? '—'} />
           <ListRow
-            label="Signed in as"
-            value={email ?? '—'}
-            icon="mail"
-            iconBg="#8E8E93"
-          />
-          <ListRow
-            label="Your space"
-            value={coupleId ? 'Active (2 members)' : 'Not set up'}
             icon="heart"
-            iconBg="#FF2D55"
+            title="Your space"
+            value={coupleId ? 'Active' : 'Not set up'}
           />
           <ListRow
-            label="Partner"
-            value={partner ? (partner.displayName || 'Joined') : 'Waiting to join'}
             icon="people"
-            iconBg="#AF52DE"
+            title="Partner"
+            value={partner ? partner.displayName || 'Joined' : 'Waiting to join'}
           />
           {members.length < 2 ? (
             <ListRow
-              label="Invite your partner"
               icon="person-add"
-              iconBg="#34C759"
+              title="Invite your partner"
               chevron
               onPress={() => router.push('/(app)/invite')}
             />
           ) : null}
         </ListSection>
 
-        {/* Appearance Section */}
-        <ListSection title="Aspetto">
-          <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
-            <SegmentedControl
-              options={[
-                { value: 'system', label: 'Auto' },
-                { value: 'light', label: 'Chiaro' },
-                { value: 'dark', label: 'Scuro' },
-              ]}
+        <ListSection title="Appearance">
+          <View style={styles.padded}>
+            <SegmentedButton
+              options={THEME_OPTIONS}
               value={settings.themeMode}
               onChange={(themeMode) => update({ themeMode })}
             />
           </View>
-          <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-            <Text
-              style={[
-                typography.bodyMedium,
-                { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
-              ]}
-            >
-              Colore accento
-            </Text>
-            <View style={styles.swatchRow}>
-              {seedPalette.map((seed) => {
-                const isSelected = settings.seedColor === seed.value;
 
-                return (
-                  <PressableScale
-                    key={seed.value}
-                    onPress={() => update({ seedColor: seed.value })}
-                    haptics="selection"
-                    scaleTo={0.92}
-                    accessibilityRole="button"
-                    accessibilityLabel={seed.name}
-                    accessibilityState={{ selected: isSelected }}
-                    style={[
-                      styles.accentSwatch,
-                      {
-                        backgroundColor: seed.value,
-                        borderColor: isSelected ? colors.onSurface : colors.outlineVariant,
-                        borderWidth: isSelected ? 2 : 1,
-                      },
-                    ]}
-                  >
-                    {isSelected ? (
-                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                    ) : null}
-                  </PressableScale>
-                );
-              })}
-            </View>
+          <SwitchRow
+            icon="color-palette-outline"
+            title="Dynamic colour"
+            supporting="Follow the wallpaper palette on Android 12 and newer"
+            value={settings.dynamicColor}
+            onChange={(dynamicColor) => update({ dynamicColor })}
+          />
+
+          <SwitchRow
+            icon="contrast-outline"
+            title="Pure black in dark mode"
+            supporting="Use true black surfaces on OLED screens"
+            value={settings.amoledBlack}
+            onChange={(amoledBlack) => update({ amoledBlack })}
+          />
+        </ListSection>
+
+        <ListSection
+          title="Accent colour"
+          footer={
+            settings.dynamicColor
+              ? 'Dynamic colour is on, so this accent applies when the device has no palette of its own.'
+              : 'Used to build the whole palette.'
+          }
+        >
+          <View style={styles.swatches}>
+            {seedPalette.map((seed) => {
+              const selected = settings.seedColor === seed.value;
+              return (
+                <PressableScale
+                  key={seed.value}
+                  onPress={() => update({ seedColor: seed.value })}
+                  haptics="selection"
+                  scaleTo={0.88}
+                  accessibilityRole="button"
+                  accessibilityLabel={seed.name}
+                  accessibilityState={{ selected }}
+                  style={[
+                    styles.accentSwatch,
+                    {
+                      backgroundColor: seed.value,
+                      borderColor: selected ? colors.onSurface : colors.outlineVariant,
+                      borderWidth: selected ? 3 : 1,
+                    },
+                  ]}
+                >
+                  {selected ? (
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  ) : null}
+                </PressableScale>
+              );
+            })}
           </View>
         </ListSection>
 
-        {/* Romantic Wallpapers & Custom Photo Section */}
-        <ListSection title="Sfondo Romantico & Foto">
-          <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs }}>
-            <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginBottom: spacing.sm }]}>
-              Applica a
+        <ListSection title="Text size">
+          <View style={styles.padded}>
+            <SegmentedButton
+              options={TEXT_SCALE_OPTIONS.map((option) => ({
+                value: String(option),
+                label: TEXT_SCALE_LABELS[option] ?? String(option),
+              }))}
+              value={String(settings.textScale)}
+              onChange={(value) => update({ textScale: Number(value) })}
+            />
+          </View>
+        </ListSection>
+
+        <ListSection title="Chat">
+          <View style={styles.padded}>
+            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
+              Bubble shape
             </Text>
-            <SegmentedControl
+            <SegmentedButton
+              options={BUBBLE_SHAPES}
+              value={settings.bubbleShape}
+              onChange={(bubbleShape) => update({ bubbleShape })}
+            />
+          </View>
+
+          <View style={styles.padded}>
+            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
+              Spacing
+            </Text>
+            <SegmentedButton
+              options={DENSITY_OPTIONS}
+              value={settings.chatDensity}
+              onChange={(chatDensity) => update({ chatDensity })}
+            />
+          </View>
+        </ListSection>
+
+        <ListSection title="Calendar">
+          <View style={styles.padded}>
+            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
+              Week starts on
+            </Text>
+            <SegmentedButton
+              options={WEEK_START_OPTIONS}
+              value={String(settings.calendarStartDay)}
+              onChange={(value) => update({ calendarStartDay: Number(value) as WeekStart })}
+            />
+          </View>
+
+          <View style={styles.padded}>
+            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
+              Opens in
+            </Text>
+            <SegmentedButton
               options={[
-                { value: 'chat', label: 'Solo Chat' },
-                { value: 'all', label: 'Tutta l\'app' },
+                { value: 'month', label: 'Month' },
+                { value: 'agenda', label: 'Agenda' },
+              ]}
+              value={settings.calendarDefaultView}
+              onChange={(calendarDefaultView) => update({ calendarDefaultView })}
+            />
+          </View>
+
+          <SwitchRow
+            icon="time-outline"
+            title="24-hour time"
+            value={settings.use24Hour}
+            onChange={(use24Hour) => update({ use24Hour })}
+          />
+        </ListSection>
+
+        <ListSection title="Feel">
+          <SwitchRow
+            icon="phone-portrait-outline"
+            title="Haptics"
+            supporting="Short vibrations on taps and actions"
+            value={settings.haptics}
+            onChange={(hapticsEnabled) => update({ haptics: hapticsEnabled })}
+          />
+          <SwitchRow
+            icon="sparkles-outline"
+            title="Animations"
+            supporting="Turn off to follow the system reduce-motion setting everywhere"
+            value={settings.motion}
+            onChange={(motion) => update({ motion })}
+          />
+        </ListSection>
+
+        <ListSection title="Background" footer="Patterns take their colour from the current palette.">
+          <View style={styles.padded}>
+            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
+              Apply to
+            </Text>
+            <SegmentedButton
+              options={[
+                { value: 'chat', label: 'Chat only' },
+                { value: 'all', label: 'Whole app' },
               ]}
               value={wallpaperPrefs.scope}
               onChange={(scope) => void setScope(scope as 'chat' | 'all')}
             />
           </View>
 
-          <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-            <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginBottom: spacing.sm }]}>
-              Pattern romantici
+          <View style={styles.padded}>
+            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
+              Pattern
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.wallpaperScroll}>
-              {WALLPAPER_PRESETS.map((p) => {
-                const isSelected = wallpaperPrefs.id === p.id;
-                const cardBg = scheme === 'dark' ? p.previewColorDark : p.previewColorLight;
+            <View style={styles.patterns}>
+              {WALLPAPER_PRESETS.map((preset) => {
+                const selected = wallpaperPrefs.id === preset.id;
                 return (
-                  <TouchableOpacity
-                    key={p.id}
-                    onPress={() => void setPreset(p.id)}
+                  <PressableScale
+                    key={preset.id}
+                    onPress={() => void setPreset(preset.id)}
+                    haptics="selection"
+                    scaleTo={0.94}
+                    accessibilityRole="button"
+                    accessibilityLabel={preset.title}
+                    accessibilityState={{ selected }}
                     style={[
-                      styles.wallpaperCard,
+                      styles.pattern,
                       {
-                        backgroundColor: cardBg,
-                        borderColor: isSelected ? colors.primary : colors.outlineVariant,
-                        borderWidth: isSelected ? 2 : 1,
+                        backgroundColor: selected
+                          ? colors.secondaryContainer
+                          : colors.surfaceContainerHighest,
+                        borderColor: selected ? colors.primary : 'transparent',
                       },
                     ]}
                   >
-                    <Ionicons name={p.icon as any} size={24} color={p.accentTone} />
+                    <Ionicons
+                      name={preset.icon as keyof typeof Ionicons.glyphMap}
+                      size={22}
+                      color={selected ? colors.onSecondaryContainer : colors.onSurfaceVariant}
+                    />
                     <Text
-                      style={[
-                        typography.labelSmall,
-                        {
-                          color: colors.onSurface,
-                          fontWeight: isSelected ? '700' : '500',
-                          marginTop: 6,
-                          textAlign: 'center',
-                        },
-                      ]}
+                      variant="labelMedium"
                       numberOfLines={1}
+                      style={{
+                        color: selected ? colors.onSecondaryContainer : colors.onSurfaceVariant,
+                        marginTop: spacing.xs,
+                      }}
                     >
-                      {p.title}
+                      {preset.title}
                     </Text>
-                  </TouchableOpacity>
+                  </PressableScale>
                 );
               })}
-            </ScrollView>
+            </View>
           </View>
 
           {wallpaperPrefs.id === 'custom' && wallpaperPrefs.customUri ? (
-            <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md, alignItems: 'center' }}>
-              <View style={[styles.customPhotoPreview, { borderColor: colors.primary }]}>
-                <Image
-                  source={{ uri: wallpaperPrefs.customUri }}
-                  style={StyleSheet.absoluteFillObject}
-                  resizeMode="cover"
-                />
-              </View>
-              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginVertical: spacing.xs }]}>
-                Foto personalizzata attiva
+            <View style={styles.photo}>
+              <Image
+                source={{ uri: wallpaperPrefs.customUri }}
+                style={[styles.photoPreview, { borderColor: colors.primary }]}
+                resizeMode="cover"
+              />
+              <Text variant="bodySmall" color="onSurfaceVariant">
+                Your photo is active
               </Text>
-              <PressableScale
-                onPress={() => void resetToDefault()}
-                style={[styles.smallBtn, { backgroundColor: colors.surfaceContainerHigh }]}
-              >
-                <Text style={[typography.bodySmall, { color: colors.error }]}>Rimuovi foto</Text>
-              </PressableScale>
+              <Chip label="Remove photo" icon="trash-outline" onPress={() => void resetToDefault()} />
             </View>
           ) : null}
 
           <ListRow
-            label="Carica foto dalla galleria"
             icon="image"
-            iconBg="#FF2D55"
+            title="Choose a photo"
             chevron
             onPress={handlePickCustomWallpaper}
           />
         </ListSection>
 
-        {/* Sync Section */}
-        <ListSection title="Sync & Storage">
+        <ListSection title="Sync and storage">
           <ListRow
-            label="Status"
             icon="sync"
-            iconBg={colors.primary}
-            rightAction={
-              <StatusPill
-                label={
-                  syncing
-                    ? 'Syncing'
-                    : pendingCount > 0
-                      ? `${pendingCount} pending`
-                      : 'Up to date'
-                }
-                tone={pendingCount > 0 ? 'pending' : 'success'}
-              />
+            title="Status"
+            value={
+              syncing ? 'Syncing' : pendingCount > 0 ? `${pendingCount} waiting` : 'Up to date'
+            }
+          />
+          <ListRow icon="cloud" title="Realtime" value={realtimeStatus} />
+          <ListRow
+            icon="time-outline"
+            title="Last sync"
+            value={
+              lastSyncedAt
+                ? new Date(lastSyncedAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: !settings.use24Hour,
+                  })
+                : 'Never'
             }
           />
           <ListRow
-            label="Realtime"
-            value={realtimeStatus}
-            icon="cloud"
-            iconBg="#5856D6"
-          />
-          <ListRow
-            label="Last sync"
-            value={lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
-            icon="time"
-            iconBg="#FF9500"
-          />
-          <ListRow
-            label={busy ? 'Syncing…' : 'Sync now'}
+            icon="refresh"
+            title={busy ? 'Syncing…' : 'Sync now'}
             onPress={handleSync}
             disabled={busy}
           />
         </ListSection>
 
-        {/* Notifications Section */}
-        <ListSection title="Notifiche & Suoni">
+        <ListSection title="Notifications">
           <ListRow
-            label="Push notifications"
-            value={pushStatus}
             icon="notifications"
-            iconBg="#FF3B30"
+            title="Push notifications"
+            supporting={pushStatus}
             onPress={handleRegisterPush}
             disabled={busy}
           />
-          <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-            <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginBottom: spacing.sm }]}>
-              Suono notifiche
+
+          <View style={styles.padded}>
+            <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.label}>
+              Sound
             </Text>
-            <View style={styles.soundList}>
-              {NOTIFICATION_SOUNDS.map((snd) => {
-                const isSelected = selectedSound === snd.id;
-                return (
-                  <TouchableOpacity
-                    key={snd.id}
-                    onPress={() => void handleSelectSound(snd.id)}
-                    style={[
-                      styles.soundRow,
-                      {
-                        backgroundColor: isSelected ? colors.surfaceContainerHigh : 'transparent',
-                        borderColor: isSelected ? colors.primary : colors.outlineVariant,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={snd.icon as any}
-                      size={20}
-                      color={isSelected ? colors.primary : colors.outline}
-                    />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={[typography.bodyLarge, { color: colors.onSurface, fontWeight: isSelected ? '600' : '400' }]}>
-                        {snd.label}
-                      </Text>
-                      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>
-                        {snd.description}
-                      </Text>
-                    </View>
-                    {isSelected ? (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={styles.sounds}>
+              {NOTIFICATION_SOUNDS.map((sound) => (
+                <Chip
+                  key={sound.id}
+                  label={sound.label}
+                  selected={selectedSound === sound.id}
+                  onPress={() => void handleSelectSound(sound.id)}
+                />
+              ))}
             </View>
           </View>
+
           <ListRow
-            label="Send test notification"
+            icon="send-outline"
+            title="Send a test notification"
             onPress={handleTestNotification}
           />
         </ListSection>
 
-        {/* Privacy & Safety */}
         <ListSection
-          title="Data & Privacy"
-          footer="Messages and calendar entries are synced between your two phones and stored locally in an encrypted database. Sign in on a new device anytime to recover synced content."
+          title="Data and privacy"
+          footer="Messages and calendar entries sync between your two phones and are stored locally in an encrypted database. Sign in on a new device to recover synced content. There is no end-to-end encryption: the server operator can read synced content."
         >
-          <ListRow
-            label="Clear local data"
-            destructive
-            onPress={handleClearData}
-          />
+          <ListRow icon="trash-outline" title="Clear local data" destructive onPress={handleClearData} />
         </ListSection>
 
-        {/* Sign Out */}
         <ListSection>
-          <ListRow
-            label="Sign out"
-            destructive
-            onPress={handleSignOut}
-          />
+          <ListRow icon="log-out-outline" title="Sign out" destructive onPress={handleSignOut} />
         </ListSection>
 
         {error ? (
-          <Text style={[typography.bodySmall, { color: colors.error, textAlign: 'center', marginTop: spacing.sm }]}>
+          <Text variant="bodySmall" color="error" style={styles.error}>
             {error}
           </Text>
         ) : null}
 
-        <Text
-          style={[
-            typography.bodySmall,
-            { color: colors.outline, textAlign: 'center', marginTop: spacing.md },
-          ]}
-        >
-          Two • Private space for two
+        <Text variant="bodySmall" color="onSurfaceVariant" style={styles.footer}>
+          Two · Private space for two
         </Text>
-      </View>
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  navHeader: {
+  content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  padded: { padding: spacing.lg },
+  label: { marginBottom: spacing.md },
+  swatches: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    padding: spacing.lg,
   },
   accentSwatch: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
+    width: 40,
+    height: 40,
+    borderRadius: shape.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  wallpaperScroll: {
-    gap: 10,
-    paddingRight: 10,
-  },
-  wallpaperCard: {
-    width: 90,
-    height: 82,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 6,
-  },
-  customPhotoPreview: {
-    width: 90,
-    height: 90,
-    borderRadius: 16,
-    overflow: 'hidden',
+  patterns: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  pattern: {
+    width: 92,
+    height: 76,
+    borderRadius: shape.lg,
     borderWidth: 2,
-  },
-  smallBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  soundList: {
-    gap: 8,
-  },
-  soundRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
+    justifyContent: 'center',
+    padding: spacing.xs,
   },
+  photo: { alignItems: 'center', gap: spacing.sm, paddingBottom: spacing.lg },
+  photoPreview: { width: 120, height: 120, borderRadius: shape.lg, borderWidth: 2 },
+  sounds: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  error: { textAlign: 'center', marginTop: spacing.sm },
+  footer: { textAlign: 'center', marginTop: spacing.lg },
 });

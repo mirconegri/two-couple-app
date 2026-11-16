@@ -1,108 +1,93 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
-  withSequence,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { isSameDay, isToday } from 'date-fns';
 
-import { buildMonthGrid, toDateKey, WEEKDAY_LABELS } from '../utils/date';
+import { buildMonthGrid, eventDateKey, toDateKey, weekdayLabels, type WeekStart } from '../utils/date';
 import { useTheme } from '../theme/ThemeProvider';
 import type { CalendarEvent } from '../types';
-import { eventDateKey } from '../utils/date';
 import { PressableScale } from './PressableScale';
+import { Text } from './Text';
+import { shape, spacing } from '../theme/tokens';
 import { duration, spring } from '../theme/motion';
 
-interface MonthGridProps {
+export interface MonthGridProps {
   anchor: Date;
   selected: Date;
+  weekStartsOn: WeekStart;
   events: readonly CalendarEvent[];
   onSelectDate: (date: Date) => void;
+}
+
+interface DayCellProps {
+  cellDate: Date;
+  inMonth: boolean;
+  isSelected: boolean;
+  isToday: boolean;
+  dayEvents: CalendarEvent[];
+  onPress: () => void;
 }
 
 function DayCell({
   cellDate,
   inMonth,
   isSelected,
-  today,
+  isToday: today,
   dayEvents,
   onPress,
-}: {
-  cellDate: Date;
-  inMonth: boolean;
-  isSelected: boolean;
-  today: boolean;
-  dayEvents: CalendarEvent[];
-  onPress: () => void;
-}) {
-  const { colors, shape, spacing, typography } = useTheme();
+}: DayCellProps) {
+  const { colors, reducedMotion } = useTheme();
   const scale = useSharedValue(1);
-  const todayPulse = useSharedValue(1);
-  const reducedMotion = useReducedMotion();
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isSelected && !reducedMotion) {
-      scale.value = withSequence(
-        withSpring(1.14, spring.spatialFast),
-        withSpring(1, spring.spatialFast),
-      );
+      scale.value = withSpring(1.12, spring.spatialFast);
+    } else {
+      scale.value = withSpring(1, spring.spatialFast);
     }
   }, [isSelected, reducedMotion, scale]);
 
-  useEffect(() => {
-    if (today && !isSelected && !reducedMotion) {
-      todayPulse.value = withSequence(
-        withTiming(1.12, { duration: 350 }),
-        withTiming(1, { duration: 350 }),
-      );
-    }
-  }, [today, isSelected, reducedMotion, todayPulse]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const currentScale = isSelected ? scale.value : (today && !isSelected ? todayPulse.value : 1);
-    return {
-      transform: [{ scale: currentScale }],
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <PressableScale
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${cellDate.toDateString()}, ${dayEvents.length} events`}
+      accessibilityState={{ selected: isSelected }}
       haptics="selection"
-      scaleTo={0.92}
-      style={[styles.cell, { padding: spacing.xs }]}
+      rippleRadius={shape.full}
+      style={styles.cell}
     >
       <Animated.View
         style={[
           styles.cellInner,
           {
-            borderRadius: shape.md,
-            backgroundColor: isSelected ? colors.primary : 'transparent',
-            borderWidth: today && !isSelected ? StyleSheet.hairlineWidth : 0,
-            borderColor: colors.primary,
+            backgroundColor: isSelected
+              ? colors.primary
+              : today
+                ? colors.primaryContainer
+                : 'transparent',
           },
           animatedStyle,
         ]}
       >
         <Text
-          style={[
-            typography.bodySmall,
-            {
-              color: isSelected
-                ? colors.onPrimary
-                : inMonth
-                  ? colors.onSurface
-                  : colors.outline,
-              fontWeight: today ? '700' : '500',
-            },
-          ]}
+          variant="bodyMedium"
+          strong={today || isSelected}
+          style={{
+            color: isSelected
+              ? colors.onPrimary
+              : inMonth
+                ? colors.onSurface
+                : colors.onSurfaceVariant,
+            opacity: inMonth || isSelected ? 1 : 0.5,
+          }}
         >
           {cellDate.getDate()}
         </Text>
@@ -116,8 +101,8 @@ function DayCell({
                 styles.dot,
                 {
                   backgroundColor: isSelected
-                    ? 'rgba(255,255,255,0.85)'
-                    : event.color ?? colors.primary,
+                    ? colors.onPrimary
+                    : (event.color ?? colors.primary),
                 },
               ]}
             />
@@ -128,10 +113,9 @@ function DayCell({
   );
 }
 
-export function MonthGrid({ anchor, selected, events, onSelectDate }: MonthGridProps) {
-  const { colors, typography } = useTheme();
-
-  const cells = buildMonthGrid(anchor);
+export function MonthGrid({ anchor, selected, weekStartsOn, events, onSelectDate }: MonthGridProps) {
+  const { colors } = useTheme();
+  const cells = buildMonthGrid(anchor, weekStartsOn);
 
   const eventsByDay = new Map<string, CalendarEvent[]>();
   for (const event of events) {
@@ -146,43 +130,38 @@ export function MonthGrid({ anchor, selected, events, onSelectDate }: MonthGridP
   return (
     <View>
       <View style={styles.weekRow}>
-        {WEEKDAY_LABELS.map((label, index) => (
+        {weekdayLabels(weekStartsOn).map((label, index) => (
           <View key={`${label}-${index}`} style={styles.weekCell}>
-            <Text style={[typography.labelSmall, { color: colors.outline }]}>{label}</Text>
+            <Text variant="labelSmall" color="onSurfaceVariant">
+              {label}
+            </Text>
           </View>
         ))}
       </View>
 
       <View style={styles.grid}>
-        {cells.map((cell) => {
-          const key = toDateKey(cell.date);
-          const dayEvents = eventsByDay.get(key) ?? [];
-          const isSelected = isSameDay(cell.date, selected);
-          const today = isToday(cell.date);
-
-          return (
-            <DayCell
-              key={cell.key}
-              cellDate={cell.date}
-              inMonth={cell.inMonth}
-              isSelected={isSelected}
-              today={today}
-              dayEvents={dayEvents}
-              onPress={() => onSelectDate(cell.date)}
-            />
-          );
-        })}
+        {cells.map((cell) => (
+          <DayCell
+            key={cell.key}
+            cellDate={cell.date}
+            inMonth={cell.inMonth}
+            isSelected={isSameDay(cell.date, selected)}
+            isToday={isToday(cell.date)}
+            dayEvents={eventsByDay.get(toDateKey(cell.date)) ?? []}
+            onPress={() => onSelectDate(cell.date)}
+          />
+        ))}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  weekRow: { flexDirection: 'row', marginBottom: 4 },
+  weekRow: { flexDirection: 'row', marginBottom: spacing.xs },
   weekCell: { flex: 1, alignItems: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: { width: `${100 / 7}%`, aspectRatio: 1 },
-  cellInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  cell: { width: `${100 / 7}%`, aspectRatio: 1, padding: 2 },
+  cellInner: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: shape.full },
   dotRow: { flexDirection: 'row', gap: 2, marginTop: 2, height: 4 },
-  dot: { width: 4, height: 4, borderRadius: 2 },
+  dot: { width: 4, height: 4, borderRadius: shape.full },
 });

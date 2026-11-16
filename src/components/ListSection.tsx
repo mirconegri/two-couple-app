@@ -1,70 +1,42 @@
 import React from 'react';
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/ThemeProvider';
+import { shape, spacing } from '../theme/tokens';
+import { PressableScale } from './PressableScale';
+import { Text } from './Text';
 
-interface ListSectionProps {
+export interface ListSectionProps {
   title?: string;
   footer?: string;
   children: React.ReactNode;
-  style?: ViewStyle;
 }
 
-export function ListSection({ title, footer, children, style }: ListSectionProps) {
-  const { colors, shape, spacing, typography } = useTheme();
-
-  const childArray = React.Children.toArray(children).filter(Boolean);
+export function ListSection({ title, footer, children }: ListSectionProps) {
+  const { colors } = useTheme();
+  const rows = React.Children.toArray(children).filter(Boolean);
 
   return (
-    <View style={[styles.wrap, { marginBottom: spacing.xl }, style]}>
+    <View style={styles.wrap}>
       {title ? (
-        <Text
-          style={[
-            typography.bodySmall,
-            styles.sectionTitle,
-            { color: colors.onSurfaceVariant, paddingHorizontal: spacing.lg, marginBottom: spacing.xs },
-          ]}
-        >
-          {title.toUpperCase()}
+        <Text variant="titleSmall" color="primary" style={styles.title}>
+          {title}
         </Text>
       ) : null}
 
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: colors.surfaceContainerLow,
-            borderRadius: shape.lg,
-            borderColor: colors.outlineVariant,
-          },
-        ]}
-      >
-        {childArray.map((child, index) => (
+      <View style={[styles.container, { backgroundColor: colors.surfaceContainerLow }]}>
+        {rows.map((row, index) => (
           <React.Fragment key={index}>
-            {child}
-            {index < childArray.length - 1 ? (
-              <View
-                style={[
-                  styles.divider,
-                  {
-                    backgroundColor: colors.outlineVariant,
-                    marginLeft: spacing.lg,
-                  },
-                ]}
-              />
+            {row}
+            {index < rows.length - 1 ? (
+              <View style={[styles.divider, { backgroundColor: colors.outlineVariant }]} />
             ) : null}
           </React.Fragment>
         ))}
       </View>
 
       {footer ? (
-        <Text
-          style={[
-            typography.bodySmall,
-            styles.sectionFooter,
-            { color: colors.onSurfaceVariant, paddingHorizontal: spacing.lg, marginTop: spacing.xs },
-          ]}
-        >
+        <Text variant="bodySmall" color="onSurfaceVariant" style={styles.footer}>
           {footer}
         </Text>
       ) : null}
@@ -73,20 +45,9 @@ export function ListSection({ title, footer, children, style }: ListSectionProps
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    width: '100%',
-  },
-  sectionTitle: {
-    letterSpacing: -0.08,
-  },
-  sectionFooter: {
-    lineHeight: 18,
-  },
-  container: {
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-  },
+  wrap: { width: '100%', marginBottom: spacing.xl },
+  title: { paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
+  container: { borderRadius: shape.lg, overflow: 'hidden' },
+  divider: { height: StyleSheet.hairlineWidth, marginLeft: spacing.lg },
+  footer: { paddingHorizontal: spacing.lg, marginTop: spacing.sm },
 });

@@ -6,7 +6,6 @@ import {
   format,
   isSameDay,
   isSameMonth,
-  parseISO,
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
@@ -44,17 +43,13 @@ export function formatInZone(
   }
 }
 
-export function timezoneOffsetLabel(iso: string, timeZone: string): string {
-  return formatInZone(iso, timeZone, { timeZoneName: 'short' });
-}
-
 /**
  * Human label for an event.
  *
  * All-day events are formatted from their `date` columns and never pass
  * through a timezone, which is what keeps them on the right day across DST.
  */
-export function formatEventRange(event: CalendarEvent): string {
+export function formatEventRange(event: CalendarEvent, use24Hour = true): string {
   if (event.allDay) {
     const start = event.startsOn ? parseDateKey(event.startsOn) : null;
     const end = event.endsOn ? parseDateKey(event.endsOn) : null;
@@ -73,6 +68,7 @@ export function formatEventRange(event: CalendarEvent): string {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: !use24Hour,
   });
 
   if (!event.endsAt) return startLabel;
@@ -84,8 +80,8 @@ export function formatEventRange(event: CalendarEvent): string {
     event.endsAt,
     zone,
     sameDay
-      ? { hour: '2-digit', minute: '2-digit' }
-      : { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' },
+      ? { hour: '2-digit', minute: '2-digit', hour12: !use24Hour }
+      : { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: !use24Hour },
   );
 
   return `${startLabel} – ${endLabel}`;
@@ -113,9 +109,9 @@ export interface MonthCell {
 }
 
 /** Six-week grid so month height never jumps between months. */
-export function buildMonthGrid(anchor: Date): MonthCell[] {
-  const gridStart = startOfWeek(startOfMonth(anchor), { weekStartsOn: 1 });
-  const gridEnd = endOfWeek(endOfMonth(anchor), { weekStartsOn: 1 });
+export function buildMonthGrid(anchor: Date, weekStartsOn: WeekStart = 1): MonthCell[] {
+  const gridStart = startOfWeek(startOfMonth(anchor), { weekStartsOn });
+  const gridEnd = endOfWeek(endOfMonth(anchor), { weekStartsOn });
   return eachDayOfInterval({ start: gridStart, end: gridEnd }).map((date) => ({
     key: toDateKey(date),
     date,
@@ -127,10 +123,12 @@ export function shiftMonth(anchor: Date, delta: number): Date {
   return addMonths(anchor, delta);
 }
 
-export function parseIsoSafe(value: string | null | undefined): Date | null {
-  if (!value) return null;
-  const parsed = parseISO(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
+/** Day the week starts on: Sunday, Monday or Saturday. */
+export type WeekStart = 0 | 1 | 6;
 
-export const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const WEEKDAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/** Seven weekday initials in display order for the configured first day. */
+export function weekdayLabels(weekStartsOn: WeekStart): string[] {
+  return Array.from({ length: 7 }, (_, index) => WEEKDAY_INITIALS[(weekStartsOn + index) % 7] ?? '');
+}

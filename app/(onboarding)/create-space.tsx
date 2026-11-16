@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Share, StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Clipboard from 'expo-clipboard';
@@ -8,17 +8,19 @@ import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
-import { NavBarButton } from '../../src/components/NavBarButton';
+import { Text } from '../../src/components/Text';
+import { TopAppBar } from '../../src/components/TopAppBar';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { supabase } from '../../src/lib/supabase';
+import { spacing } from '../../src/theme/tokens';
 import { errorMessage } from '../../src/utils/errors';
 import { formatInviteCode } from '../../src/utils/invite';
 
 export default function CreateSpaceScreen() {
   const db = useSQLiteContext();
   const { refreshCouple } = useAuth();
-  const { colors, spacing, typography } = useTheme();
+  const { colors } = useTheme();
 
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,35 +32,17 @@ export default function CreateSpaceScreen() {
   const createSpace = async () => {
     setBusy(true);
     setError(null);
-    let id: string | null = null;
     try {
       const { data, error: rpcError } = await supabase.rpc('create_couple', {
         p_name: name.trim() || null,
       });
       if (rpcError) throw new Error(rpcError.message);
 
-      id = typeof data === 'string' ? data : null;
+      const id = typeof data === 'string' ? data : null;
       if (!id) throw new Error('The space was created but no id was returned.');
 
       setCoupleId(id);
       await refreshCouple(db);
-    } catch (caught) {
-      setError(errorMessage(caught));
-      setBusy(false);
-      return;
-    }
-
-    try {
-      const { data: inviteData, error: inviteError } = await supabase.rpc('create_invitation', {
-        p_ttl_hours: 48,
-      });
-      if (inviteError) throw new Error(inviteError.message);
-
-      const code = typeof inviteData === 'string' ? inviteData : null;
-      if (!code) throw new Error('No invitation code was returned.');
-
-      setInviteCode(code);
-      setCopied(false);
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -89,130 +73,90 @@ export default function CreateSpaceScreen() {
 
   const copyCode = async () => {
     if (!inviteCode) return;
-    const formatted = formatInviteCode(inviteCode);
-    await Clipboard.setStringAsync(formatted);
+    await Clipboard.setStringAsync(formatInviteCode(inviteCode));
     setCopied(true);
   };
 
   const shareCode = async () => {
     if (!inviteCode) return;
-    const formatted = formatInviteCode(inviteCode);
     await Share.share({
-      message: `Join our private space in Two.\n\nInvitation code:\n${formatted}\n\nThis code works once and expires in 48 hours.`,
+      message: `Join our private space in Two.\n\nInvitation code:\n${formatInviteCode(inviteCode)}\n\nThis code works once and expires in 48 hours.`,
     });
   };
 
   if (inviteCode) {
-    const formatted = formatInviteCode(inviteCode);
-
     return (
-      <Screen scroll>
-        <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-          <Text style={[typography.displaySmall, { color: colors.onSurface, marginTop: spacing.lg }]}>
+      <>
+        <TopAppBar title="Invite your partner" />
+        <Screen scroll contentStyle={styles.content}>
+          <Text variant="headlineMedium" strong>
             Invite your partner
           </Text>
-          <Text
-            style={[
-              typography.bodyMedium,
-              { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xl },
-            ]}
-          >
+          <Text variant="bodyLarge" color="onSurfaceVariant" style={styles.subtitle}>
             Share this invitation code with your partner so they can join your space.
           </Text>
 
-          <Card>
+          <Card variant="filled" style={styles.codeCard}>
             <Text
               selectable
-              style={[
-                typography.titleMedium,
-                {
-                  color: colors.onSurface,
-                  fontFamily: undefined,
-                  letterSpacing: 0.6,
-                  textAlign: 'center',
-                },
-              ]}
+              variant="headlineSmall"
+              strong
+              style={[styles.code, { color: colors.onSurface }]}
             >
-              {formatted}
+              {formatInviteCode(inviteCode)}
             </Text>
           </Card>
 
-          <Text
-            style={[
-              typography.bodySmall,
-              { color: colors.onSurfaceVariant, marginTop: spacing.md, textAlign: 'center' },
-            ]}
-          >
+          <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.centered}>
             Expires in 48 hours
           </Text>
-
-          <Text
-            style={[
-              typography.bodySmall,
-              {
-                color: colors.outline,
-                marginTop: spacing.xs,
-                marginBottom: spacing.lg,
-                textAlign: 'center',
-              },
-            ]}
-          >
+          <Text variant="bodySmall" color="onSurfaceVariant" style={styles.centered}>
             This code is shown only once. If you lose it, generate a new one from Settings.
           </Text>
 
-          <Button
-            label={copied ? 'Copied' : 'Copy code'}
-            variant="secondary"
-            onPress={copyCode}
-            style={{ marginTop: spacing.sm }}
-          />
-          <Button
-            label="Share"
-            variant="secondary"
-            onPress={shareCode}
-            style={{ marginTop: spacing.sm }}
-          />
-
           {error ? (
-            <Text
-              style={[
-                typography.bodySmall,
-                { color: colors.error, marginTop: spacing.md },
-              ]}
-            >
+            <Text variant="bodySmall" color="error" style={styles.error}>
               {error}
             </Text>
           ) : null}
 
+          <View style={styles.actions}>
+            <Button
+              label={copied ? 'Copied' : 'Copy code'}
+              icon={copied ? 'checkmark' : 'copy'}
+              variant="tonal"
+              onPress={copyCode}
+              fullWidth
+            />
+            <Button
+              label="Share"
+              icon="share-outline"
+              variant="outlined"
+              onPress={shareCode}
+              fullWidth
+            />
+          </View>
+
           <Button
             label="Continue"
-            variant="primary"
             onPress={() => router.replace('/(app)/(tabs)')}
-            style={{ marginTop: spacing.xl }}
+            size="medium"
+            fullWidth
+            style={styles.continue}
           />
-        </View>
-      </Screen>
+        </Screen>
+      </>
     );
   }
 
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-        <View style={{ marginBottom: spacing.md }}>
-          <NavBarButton
-            icon="chevron-back"
-            label="Back"
-            onPress={() => router.back()}
-          />
-        </View>
-
-        <Text style={[typography.displaySmall, { color: colors.onSurface }]}>Create the space</Text>
-        <Text
-          style={[
-            typography.bodyMedium,
-            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xxl },
-          ]}
-        >
+    <>
+      <TopAppBar title="Create the space" onBack={() => router.back()} />
+      <Screen scroll contentStyle={styles.content}>
+        <Text variant="headlineMedium" strong>
+          Create the space
+        </Text>
+        <Text variant="bodyLarge" color="onSurfaceVariant" style={styles.subtitle}>
           Give it a name if you like. Only the two of you will ever see it.
         </Text>
 
@@ -220,34 +164,48 @@ export default function CreateSpaceScreen() {
           label="Space name (optional)"
           value={name}
           onChangeText={setName}
-          placeholder="Us"
           maxLength={60}
           error={error}
         />
 
-        {coupleId ? (
-          <Button
-            label="Generate invitation code"
-            onPress={generateInvite}
-            loading={busy}
-          />
-        ) : (
-          <Button label="Create our space" onPress={createSpace} loading={busy} />
-        )}
+        <View style={styles.actions}>
+          {coupleId ? (
+            <Button
+              label="Generate invitation code"
+              onPress={generateInvite}
+              size="medium"
+              fullWidth
+              loading={busy}
+            />
+          ) : (
+            <Button
+              label="Create our space"
+              onPress={createSpace}
+              size="medium"
+              fullWidth
+              loading={busy}
+            />
+          )}
+        </View>
 
         {coupleId ? (
-          <Text
-            style={[
-              typography.bodySmall,
-              { color: colors.onSurfaceVariant, marginTop: spacing.md },
-            ]}
-          >
+          <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.note}>
             Space created. Generate a code to invite your partner.
           </Text>
         ) : null}
-      </View>
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  subtitle: { marginTop: spacing.sm, marginBottom: spacing.xxl },
+  codeCard: { paddingVertical: spacing.xl },
+  code: { textAlign: 'center', letterSpacing: 1.5 },
+  centered: { textAlign: 'center', marginTop: spacing.sm },
+  error: { marginTop: spacing.md, textAlign: 'center' },
+  actions: { gap: spacing.sm, marginTop: spacing.xl },
+  continue: { marginTop: spacing.xl },
+  note: { marginTop: spacing.md },
+});

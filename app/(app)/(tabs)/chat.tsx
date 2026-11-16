@@ -1,31 +1,24 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Keyboard,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Keyboard, StyleSheet, TextInput, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
   interpolateColor,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
-  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import { KeyboardAvoidingView, KeyboardEvents } from 'react-native-keyboard-controller';
-import { useSQLiteContext } from 'expo-sqlite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSQLiteContext } from 'expo-sqlite';
 import { Ionicons } from '@expo/vector-icons';
 
 import { MessageBubble } from '../../../src/components/MessageBubble';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { PressableScale } from '../../../src/components/PressableScale';
+import { IconButton } from '../../../src/components/IconButton';
+import { Text } from '../../../src/components/Text';
+import { LoadingIndicator } from '../../../src/components/LoadingIndicator';
 import { WallpaperBackground } from '../../../src/components/WallpaperBackground';
 import { StickerPicker } from '../../../src/components/StickerPicker';
 import { useAuth } from '../../../src/auth/AuthProvider';
@@ -36,6 +29,7 @@ import { supabaseRemote } from '../../../src/sync/remote';
 import { newId } from '../../../src/lib/id';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { useWallpaper } from '../../../src/theme/WallpaperProvider';
+import { useSettings } from '../../../src/settings/SettingsProvider';
 import {
   encodeStickerMessage,
   updateStickerStoragePath,
@@ -45,118 +39,60 @@ import { uploadStickerToStorage } from '../../../src/theme/stickerStorage';
 import { messageDayLabel } from '../../../src/utils/date';
 import { errorMessage } from '../../../src/utils/errors';
 import { duration } from '../../../src/theme/motion';
+import { shape, spacing } from '../../../src/theme/tokens';
 import type { Message } from '../../../src/types';
 
-function ChatLoadingShimmer() {
-  const { colors, shape, spacing } = useTheme();
-  const opacity = useSharedValue(0.4);
-  const reducedMotion = useReducedMotion();
-
-  useEffect(() => {
-    if (!reducedMotion) {
-      opacity.value = withRepeat(
-        withTiming(0.8, { duration: 800 }),
-        -1,
-        true,
-      );
-    }
-  }, [reducedMotion, opacity]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  return (
-    <View style={[styles.fill, { backgroundColor: colors.surface, padding: spacing.lg, justifyContent: 'flex-end' }]}>
-      <Animated.View
-        style={[
-          {
-            width: '60%',
-            height: 48,
-            borderRadius: shape.xl,
-            backgroundColor: colors.surfaceContainerHigh,
-            marginBottom: spacing.md,
-            alignSelf: 'flex-start',
-          },
-          animStyle,
-        ]}
-      />
-      <Animated.View
-        style={[
-          {
-            width: '72%',
-            height: 64,
-            borderRadius: shape.xl,
-            backgroundColor: colors.surfaceContainerHigh,
-            marginBottom: spacing.md,
-            alignSelf: 'flex-end',
-          },
-          animStyle,
-        ]}
-      />
-      <Animated.View
-        style={[
-          {
-            width: '45%',
-            height: 44,
-            borderRadius: shape.xl,
-            backgroundColor: colors.surfaceContainerHigh,
-            marginBottom: spacing.md,
-            alignSelf: 'flex-start',
-          },
-          animStyle,
-        ]}
-      />
-    </View>
-  );
+interface ChatRow {
+  message: Message;
+  isGroupStart: boolean;
+  isGroupEnd: boolean;
+  showDay: boolean;
 }
 
 export default function ChatScreen() {
   const db = useSQLiteContext();
-  const insets = useSafeAreaInsets();
-  const { colors, spacing, typography, shape } = useTheme();
+  const { colors, typography, reducedMotion } = useTheme();
   const { userId, coupleId, members } = useAuth();
   const { notifyLocalChange, syncing, refreshUnread, setChatActive } = useSync();
   const { messages, loading, loadingMore, loadOlder, retry, hasMore, addOptimisticMessage } =
     useMessages();
-  const partner = members.find((m) => m.userId !== userId);
+  const { settings } = useSettings();
 
   const { prefs: wallpaperPrefs } = useWallpaper();
+  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState('');
   const [showStickers, setShowStickers] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const listRef = useRef<FlatList<Message>>(null);
+  const listRef = useRef<FlatList<ChatRow>>(null);
   const inputRef = useRef<TextInput>(null);
   const keyboardVisibleRef = useRef(false);
   const pendingStickersRef = useRef(false);
   const stickersDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reducedMotion = useReducedMotion();
   const seenMessageIds = useRef<Set<string>>(new Set());
   const initialPopulated = useRef(false);
 
-  const isDraftValid = draft.trim().length > 0;
-  const sendBtnProgress = useSharedValue(isDraftValid ? 1 : 0);
+  const partner = members.find((member) => member.userId !== userId);
+  const myName = members.find((member) => member.userId === userId)?.displayName || 'You';
+  const partnerName = partner?.displayName || 'Partner';
+
+  const canSend = draft.trim().length > 0;
+  const sendProgress = useSharedValue(canSend ? 1 : 0);
 
   useEffect(() => {
-    sendBtnProgress.value = withTiming(isDraftValid ? 1 : 0, {
-      duration: duration.short3,
-    });
-  }, [isDraftValid, sendBtnProgress]);
+    sendProgress.value = withTiming(canSend ? 1 : 0, { duration: duration.short3 });
+  }, [canSend, sendProgress]);
 
-  const sendBtnBgStyle = useAnimatedStyle(() => {
-    const bg = interpolateColor(
-      sendBtnProgress.value,
+  const sendButtonStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      sendProgress.value,
       [0, 1],
-      [colors.surfaceContainerHigh, colors.primary],
-    );
-    return { backgroundColor: bg };
-  });
+      [colors.surfaceContainerHighest, colors.primary],
+    ),
+  }));
 
   useEffect(() => {
     if (messages.length > 0 && !initialPopulated.current) {
-      for (const m of messages) {
-        seenMessageIds.current.add(m.id);
-      }
+      for (const message of messages) seenMessageIds.current.add(message.id);
       initialPopulated.current = true;
     }
   }, [messages]);
@@ -169,21 +105,13 @@ export default function ChatScreen() {
       }
     };
 
-    const willShowSub = KeyboardEvents.addListener('keyboardWillShow', () => {
+    const onShow = () => {
       keyboardVisibleRef.current = true;
       pendingStickersRef.current = false;
       clearPendingTimer();
       setShowStickers(false);
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
-    });
-
-    const didShowSub = KeyboardEvents.addListener('keyboardDidShow', () => {
-      keyboardVisibleRef.current = true;
-      pendingStickersRef.current = false;
-      clearPendingTimer();
-      setShowStickers(false);
-      listRef.current?.scrollToOffset({ offset: 0, animated: true });
-    });
+    };
 
     const didHideSub = KeyboardEvents.addListener('keyboardDidHide', () => {
       keyboardVisibleRef.current = false;
@@ -194,6 +122,9 @@ export default function ChatScreen() {
       }
     });
 
+    const willShowSub = KeyboardEvents.addListener('keyboardWillShow', onShow);
+    const didShowSub = KeyboardEvents.addListener('keyboardDidShow', onShow);
+
     return () => {
       willShowSub.remove();
       didShowSub.remove();
@@ -202,7 +133,6 @@ export default function ChatScreen() {
     };
   }, []);
 
-  // Notify sync provider when chat screen is active to manage notifications
   useEffect(() => {
     setChatActive(true);
     if (coupleId && userId) {
@@ -216,11 +146,9 @@ export default function ChatScreen() {
     };
   }, [coupleId, db, refreshUnread, setChatActive, userId]);
 
-  // Mark incoming messages as read when viewing the chat.
   useEffect(() => {
     if (!coupleId || !userId) return;
-    const hasUnread = messages.some((m) => m.senderId !== userId && !m.readAt);
-    if (hasUnread) {
+    if (messages.some((message) => message.senderId !== userId && !message.readAt)) {
       void (async () => {
         await markLocalMessagesRead(db, coupleId, userId);
         await refreshUnread();
@@ -245,9 +173,7 @@ export default function ChatScreen() {
     pendingStickersRef.current = true;
     inputRef.current?.blur();
     Keyboard.dismiss();
-    if (stickersDelayTimerRef.current) {
-      clearTimeout(stickersDelayTimerRef.current);
-    }
+    if (stickersDelayTimerRef.current) clearTimeout(stickersDelayTimerRef.current);
     stickersDelayTimerRef.current = setTimeout(() => {
       if (pendingStickersRef.current) {
         pendingStickersRef.current = false;
@@ -256,38 +182,42 @@ export default function ChatScreen() {
     }, 260);
   }, [showStickers]);
 
+  const deliver = useCallback(
+    async (message: Message) => {
+      addOptimisticMessage(message);
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      try {
+        await enqueueMessage(db, message);
+        notifyLocalChange();
+      } catch (caught) {
+        setError(errorMessage(caught));
+      }
+    },
+    [addOptimisticMessage, db, notifyLocalChange],
+  );
+
   const send = useCallback(async () => {
     const body = draft.trim();
     if (!body || !coupleId || !userId) return;
 
-    const message: Message = {
+    setDraft('');
+    setError(null);
+    const now = new Date().toISOString();
+    await deliver({
       id: newId(),
       coupleId,
       senderId: userId,
       body,
-      clientCreatedAt: new Date().toISOString(),
+      clientCreatedAt: now,
       serverCreatedAt: null,
       deliveredAt: null,
       readAt: null,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
       deletedAt: null,
       syncStatus: 'pending',
       failureReason: null,
-    };
-
-    // Instant optimistic feedback: clear input, show bubble, scroll to latest
-    setDraft('');
-    setError(null);
-    addOptimisticMessage(message);
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
-
-    try {
-      await enqueueMessage(db, message);
-      notifyLocalChange();
-    } catch (caught) {
-      setError(errorMessage(caught));
-    }
-  }, [addOptimisticMessage, coupleId, db, draft, notifyLocalChange, userId]);
+    });
+  }, [coupleId, deliver, draft, userId]);
 
   const sendSticker = useCallback(
     async (sticker: Sticker) => {
@@ -296,12 +226,8 @@ export default function ChatScreen() {
       setError(null);
       let stickerToSend = sticker;
 
-      // Upload local-only custom stickers lazily so the partner receives a synced storage object.
-      if (
-        sticker.imageUri &&
-        !sticker.storagePath &&
-        !sticker.imageUri.startsWith('http')
-      ) {
+      // Custom stickers are uploaded on first send so the partner gets a synced object.
+      if (sticker.imageUri && !sticker.storagePath && !sticker.imageUri.startsWith('http')) {
         try {
           const storagePath = await uploadStickerToStorage(coupleId, sticker.imageUri);
           stickerToSend = { ...sticker, storagePath };
@@ -312,123 +238,98 @@ export default function ChatScreen() {
         }
       }
 
-      const body = encodeStickerMessage(stickerToSend);
-      const message: Message = {
+      const now = new Date().toISOString();
+      await deliver({
         id: newId(),
         coupleId,
         senderId: userId,
-        body,
-        clientCreatedAt: new Date().toISOString(),
+        body: encodeStickerMessage(stickerToSend),
+        clientCreatedAt: now,
         serverCreatedAt: null,
         deliveredAt: null,
         readAt: null,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
         deletedAt: null,
         syncStatus: 'pending',
         failureReason: null,
-      };
-
-      addOptimisticMessage(message);
-      listRef.current?.scrollToOffset({ offset: 0, animated: true });
-
-      try {
-        await enqueueMessage(db, message);
-        notifyLocalChange();
-      } catch (caught) {
-        setError(errorMessage(caught));
-      }
+      });
     },
-    [addOptimisticMessage, coupleId, db, notifyLocalChange, userId],
+    [coupleId, deliver, userId],
+  );
+
+  const rows = useMemo<ChatRow[]>(
+    () =>
+      messages.map((message, index) => {
+        const previous = messages[index - 1];
+        const next = messages[index + 1];
+        return {
+          message,
+          isGroupStart: !previous || previous.senderId !== message.senderId,
+          isGroupEnd: !next || next.senderId !== message.senderId,
+          showDay:
+            !next ||
+            messageDayLabel(next.clientCreatedAt) !== messageDayLabel(message.clientCreatedAt),
+        };
+      }),
+    [messages],
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: Message; index: number }) => {
-      const next = messages[index + 1];
-      const showDay =
-        !next ||
-        messageDayLabel(next.clientCreatedAt) !== messageDayLabel(item.clientCreatedAt);
-
-      const showSenderName =
-        !next || next.senderId !== item.senderId;
-
-      const isMine = item.senderId === userId;
-      const me = members.find((m) => m.userId === userId);
-      const partnerMember = members.find((m) => m.userId !== userId);
-      const myName = me?.displayName || 'You';
-      const partnerName = partnerMember?.displayName || 'Partner';
-      const senderName = isMine ? myName : partnerName;
-
-      const isNew = !seenMessageIds.current.has(item.id);
-      if (isNew) {
-        seenMessageIds.current.add(item.id);
-      }
+    ({ item }: { item: ChatRow }) => {
+      const { message, isGroupStart, isGroupEnd, showDay } = item;
+      const isMine = message.senderId === userId;
+      const isNew = !seenMessageIds.current.has(message.id);
+      if (isNew) seenMessageIds.current.add(message.id);
 
       const entering = isNew
         ? reducedMotion
           ? FadeIn.duration(duration.short3)
-          : FadeInDown.springify().damping(18)
+          : FadeInDown.duration(duration.medium1)
         : undefined;
 
-      const content = (
+      const body = (
         <View>
           <MessageBubble
-            message={item}
+            message={message}
             isMine={isMine}
-            showSenderName={showSenderName}
-            senderName={senderName}
+            senderName={isMine ? myName : partnerName}
+            isGroupStart={isGroupStart}
+            isGroupEnd={isGroupEnd}
             onRetry={(id) => void retry(id)}
           />
           {showDay ? (
-            <Text
-              style={[
-                typography.labelSmall,
-                {
-                  color: colors.outline,
-                  textAlign: 'center',
-                  marginVertical: spacing.md,
-                },
-              ]}
-            >
-              {messageDayLabel(item.clientCreatedAt)}
+            <Text variant="labelSmall" color="onSurfaceVariant" style={styles.dayLabel}>
+              {messageDayLabel(message.clientCreatedAt)}
             </Text>
           ) : null}
         </View>
       );
 
-      if (entering) {
-        return <Animated.View entering={entering}>{content}</Animated.View>;
-      }
-      return content;
+      return entering ? <Animated.View entering={entering}>{body}</Animated.View> : body;
     },
-    [colors.outline, members, messages, reducedMotion, retry, spacing.md, typography.labelSmall, userId],
+    [myName, partnerName, reducedMotion, retry, userId],
   );
-
-  if (loading) {
-    return <ChatLoadingShimmer />;
-  }
 
   return (
     <WallpaperBackground prefs={wallpaperPrefs} style={styles.fill}>
-      <KeyboardAvoidingView
-        style={[
-          styles.fill,
-          { backgroundColor: wallpaperPrefs.id === 'default' ? colors.surface : 'transparent' },
-        ]}
-        behavior="padding"
-        keyboardVerticalOffset={0}
-      >
-        <View style={{ paddingTop: insets.top + spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs }}>
-          <View style={styles.headerRow}>
-            <Text style={[typography.headlineMedium, { color: colors.onSurface }]}>
-              {partner?.displayName ? partner.displayName : 'Chat'}
+      <KeyboardAvoidingView style={styles.fill} behavior="padding" keyboardVerticalOffset={0}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+          <View style={styles.headerText}>
+            <Text variant="titleLarge" strong numberOfLines={1}>
+              {partnerName}
             </Text>
-            {syncing ? (
-              <ActivityIndicator size="small" color={colors.outline} />
-            ) : null}
+            <Text variant="bodySmall" color="onSurfaceVariant">
+              {syncing ? 'Syncing…' : 'Just the two of you'}
+            </Text>
           </View>
+          {syncing ? <LoadingIndicator size={20} /> : null}
         </View>
 
-        {messages.length === 0 ? (
+        {loading ? (
+          <View style={styles.center}>
+            <LoadingIndicator size={32} />
+          </View>
+        ) : messages.length === 0 ? (
           <EmptyState
             icon="chatbubble-ellipses-outline"
             title="Say something"
@@ -437,15 +338,12 @@ export default function ChatScreen() {
         ) : (
           <FlatList
             ref={listRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
+            data={rows}
+            keyExtractor={(row) => row.message.id}
             renderItem={renderItem}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.md,
-              paddingBottom: spacing.lg,
-            }}
+            keyboardDismissMode="interactive"
+            contentContainerStyle={styles.list}
             inverted
             onEndReached={() => {
               if (hasMore) void loadOlder();
@@ -453,52 +351,27 @@ export default function ChatScreen() {
             onEndReachedThreshold={0.4}
             ListFooterComponent={
               loadingMore ? (
-                <ActivityIndicator
-                  style={{ marginVertical: spacing.md }}
-                  color={colors.outline}
-                />
+                <View style={styles.listFooter}>
+                  <LoadingIndicator size={20} />
+                </View>
               ) : null
             }
           />
         )}
 
         {error ? (
-          <Text
-            style={[
-              typography.bodySmall,
-              { color: colors.error, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
-            ]}
-          >
+          <Text variant="bodySmall" color="error" style={styles.error}>
             {error}
           </Text>
         ) : null}
 
-        <View
-          style={[
-            styles.composer,
-            {
-              backgroundColor: colors.surfaceContainerLow,
-              borderTopColor: colors.outlineVariant,
-              paddingBottom: spacing.sm,
-              paddingHorizontal: spacing.md,
-              paddingTop: spacing.sm,
-            },
-          ]}
-        >
-          <PressableScale
+        <View style={styles.composer}>
+          <IconButton
+            icon={showStickers ? 'keypad-outline' : 'happy-outline'}
+            variant={showStickers ? 'tonal' : 'standard'}
             onPress={toggleStickers}
-            hitSlop={8}
-            scaleTo={0.92}
-            accessibilityRole="button"
-            accessibilityLabel={showStickers ? 'Keyboard' : 'Stickers'}
-            style={styles.iconButton}
-          >
-            <Ionicons
-              name={showStickers ? 'keypad-outline' : 'happy-outline'}
-              size={24}
-              color={showStickers ? colors.primary : colors.outline}
-            />
-          </PressableScale>
+            accessibilityLabel={showStickers ? 'Show keyboard' : 'Show stickers'}
+          />
 
           <TextInput
             ref={inputRef}
@@ -509,42 +382,29 @@ export default function ChatScreen() {
               setShowStickers(false);
             }}
             placeholder="Message"
-            placeholderTextColor={colors.outline}
+            placeholderTextColor={colors.onSurfaceVariant}
             multiline
             maxLength={4000}
+            accessibilityLabel="Message"
             style={[
               typography.bodyLarge,
               styles.input,
-              {
-                color: colors.onSurface,
-                backgroundColor: colors.surfaceContainerHigh,
-                borderRadius: shape.lg,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm + 2,
-              },
+              { color: colors.onSurface, backgroundColor: colors.surfaceContainerHighest },
             ]}
           />
 
           <PressableScale
             onPress={send}
-            disabled={draft.trim().length === 0}
+            disabled={!canSend}
             accessibilityRole="button"
             accessibilityLabel="Send message"
-            haptics="light"
-            scaleTo={0.92}
-            style={[
-              styles.sendButton,
-              {
-                borderRadius: shape.full,
-              },
-              sendBtnBgStyle,
-            ]}
+            accessibilityState={{ disabled: !canSend }}
+            haptics="confirm"
+            scaleTo={0.9}
+            rippleRadius={shape.full}
+            style={[styles.send, sendButtonStyle]}
           >
-            <Ionicons
-              name="arrow-up"
-              size={20}
-              color={draft.trim().length === 0 ? colors.outline : colors.onPrimary}
-            />
+            <Ionicons name="arrow-up" size={20} color={canSend ? colors.onPrimary : colors.onSurfaceVariant} />
           </PressableScale>
         </View>
 
@@ -562,29 +422,41 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: spacing.md,
   },
+  headerText: { flex: 1 },
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.lg },
+  listFooter: { paddingVertical: spacing.md, alignItems: 'center' },
+  dayLabel: { textAlign: 'center', marginVertical: spacing.md },
+  error: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  input: { flex: 1, maxHeight: 120, minHeight: 40 },
-  iconButton: {
-    width: 38,
-    height: 40,
+  input: {
+    flex: 1,
+    maxHeight: 132,
+    minHeight: 48,
+    borderRadius: shape.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  send: {
+    width: 48,
+    height: 48,
+    borderRadius: shape.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
   },
 });

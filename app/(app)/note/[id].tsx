@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { NoteEditor } from '../../../src/components/NoteEditor';
 import { LoadingScreen } from '../../../src/components/LoadingScreen';
+import { Screen } from '../../../src/components/Screen';
+import { EmptyState } from '../../../src/components/EmptyState';
+import { TopAppBar } from '../../../src/components/TopAppBar';
 import { getNote } from '../../../src/db/notes';
 import type { Note } from '../../../src/types';
 
@@ -29,6 +32,22 @@ export default function EditNoteScreen() {
     };
   }, [db, id]);
 
-  if (loading) return <LoadingScreen />;
+  if (loading) return <LoadingScreen message="Opening note" />;
+
+  if (!note) {
+    return (
+      <>
+        <TopAppBar title="Note" onBack={() => router.back()} />
+        <Screen>
+          <EmptyState
+            icon="document-text-outline"
+            title="Note not found"
+            description="It may have been deleted on the other phone."
+          />
+        </Screen>
+      </>
+    );
+  }
+
   return <NoteEditor initialNote={note} />;
 }

@@ -1,17 +1,13 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { addDays, format, isAfter, isBefore } from 'date-fns';
 import Animated, {
-  Extrapolation,
   FadeIn,
   FadeInUp,
-  interpolate,
-  useAnimatedRef,
-  useAnimatedStyle,
-  useReducedMotion,
-  useScrollViewOffset,
+  useAnimatedScrollHandler,
+  useSharedValue,
 } from 'react-native-reanimated';
 
 import { Screen } from '../../../src/components/Screen';
@@ -19,25 +15,28 @@ import { Card } from '../../../src/components/Card';
 import { EventRow } from '../../../src/components/EventRow';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { Button } from '../../../src/components/Button';
-import { NavBarButton } from '../../../src/components/NavBarButton';
-import { PressableScale } from '../../../src/components/PressableScale';
+import { Text } from '../../../src/components/Text';
+import { TopAppBar } from '../../../src/components/TopAppBar';
+import { IconButton } from '../../../src/components/IconButton';
+import { Fab } from '../../../src/components/Fab';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useEvents } from '../../../src/hooks/useEvents';
 import { useSync } from '../../../src/sync/SyncProvider';
 import { useTheme } from '../../../src/theme/ThemeProvider';
+import { useSettings } from '../../../src/settings/SettingsProvider';
 import { formatEventRange } from '../../../src/utils/date';
 import { duration } from '../../../src/theme/motion';
+import { iconSize, spacing } from '../../../src/theme/tokens';
 
 export default function HomeScreen() {
-  const { colors, spacing, typography, shape } = useTheme();
+  const { colors, reducedMotion } = useTheme();
+  const { settings } = useSettings();
   const { members, userId } = useAuth();
   const { events } = useEvents();
-  const { pendingCount, syncing, lastSyncedAt } = useSync();
-  const reducedMotion = useReducedMotion();
+  const { pendingCount, syncing } = useSync();
 
   const partner = members.find((member) => member.userId !== userId);
   const me = members.find((member) => member.userId === userId);
-  const hasName = Boolean(me?.displayName);
 
   const upcoming = useMemo(() => {
     const now = new Date();
@@ -49,8 +48,7 @@ export default function HomeScreen() {
         if (event.allDay && event.startsOn) {
           const [y, m, d] = event.startsOn.split('-').map(Number);
           if (!y || !m || !d) return false;
-          const date = new Date(y, m - 1, d, 23, 59);
-          return isAfter(date, now) && isBefore(date, horizon);
+          return isAfter(new Date(y, m - 1, d, 23, 59), now) && isBefore(new Date(y, m - 1, d, 23, 59), horizon);
         }
         if (event.startsAt) {
           const date = new Date(event.startsAt);
@@ -62,215 +60,128 @@ export default function HomeScreen() {
   }, [events]);
 
   const nextEvent = upcoming[0];
-  const todayLabel = format(new Date(), 'EEEE, d MMMM');
-  const scrollRef = useAnimatedRef<Animated.ScrollView>();
-  const scrollOffset = useScrollViewOffset(scrollRef);
-
-  const headerParallaxStyle = useAnimatedStyle(() => {
-    if (reducedMotion) return {};
-    const translateY = interpolate(
-      scrollOffset.value,
-      [0, 80],
-      [0, 10],
-      Extrapolation.CLAMP,
-    );
-    const opacity = interpolate(
-      scrollOffset.value,
-      [0, 80],
-      [1, 0.6],
-      Extrapolation.CLAMP,
-    );
-    return {
-      transform: [{ translateY }],
-      opacity,
-    };
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
   });
 
-  const collapsingTitleStyle = useAnimatedStyle(() => {
-    if (reducedMotion) return {};
-    const scale = interpolate(
-      scrollOffset.value,
-      [0, 90],
-      [1, 0.88],
-      Extrapolation.CLAMP,
-    );
-    const translateY = interpolate(
-      scrollOffset.value,
-      [0, 90],
-      [0, -12],
-      Extrapolation.CLAMP,
-    );
-    const opacity = interpolate(
-      scrollOffset.value,
-      [0, 100],
-      [1, 0.3],
-      Extrapolation.CLAMP,
-    );
-    return {
-      transform: [{ translateY }, { scale }],
-      opacity,
-    };
-  });
-
-  const getEntrance = (index: number) => {
-    const delayMs = index * 60;
-    if (reducedMotion) {
-      return FadeIn.duration(duration.short3).delay(delayMs);
-    }
-    return FadeInUp.duration(duration.medium1).delay(delayMs);
-  };
+  const entrance = (index: number) =>
+    reducedMotion
+      ? FadeIn.duration(duration.short3).delay(index * 40)
+      : FadeInUp.duration(duration.medium1).delay(index * 60);
 
   return (
-    <Screen scroll scrollRef={scrollRef}>
-      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-        {/* Top Header Bar */}
-        <Animated.View entering={getEntrance(0)} style={headerParallaxStyle}>
-          <View style={styles.topBar}>
-            <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, textTransform: 'uppercase' }]}>
-              {todayLabel}
-            </Text>
-            <NavBarButton
-              icon="settings-outline"
-              onPress={() => router.push('/(app)/settings')}
-            />
-          </View>
-        </Animated.View>
+    <View style={styles.root}>
+      <TopAppBar
+        title={me?.displayName ? `Hello, ${me.displayName}` : 'Two'}
+        scrollY={scrollY}
+        actions={
+          <IconButton
+            icon="settings-outline"
+            onPress={() => router.push('/(app)/settings')}
+            accessibilityLabel="Settings"
+          />
+        }
+      />
 
-        {/* Large Title */}
-        <Animated.View entering={getEntrance(1)} style={collapsingTitleStyle}>
-          <Text
-            style={[
-              typography.displaySmall,
-              { color: colors.onSurface, marginTop: spacing.xs, marginBottom: spacing.lg },
-            ]}
-          >
-            {me?.displayName ? `Hello, ${me.displayName}` : 'Two'}
-          </Text>
-        </Animated.View>
+      <Screen scroll onScroll={scrollHandler} contentStyle={styles.content}>
+        <Text variant="labelLarge" color="onSurfaceVariant" style={styles.date}>
+          {format(new Date(), 'EEEE, d MMMM').toUpperCase()}
+        </Text>
 
-        {/* Partner Invite Banner */}
         {members.length < 2 ? (
-          <Animated.View entering={getEntrance(2)}>
-            <Card style={{ marginBottom: spacing.lg, borderColor: colors.primary }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-                <Ionicons name="person-add-outline" size={20} color={colors.primary} style={{ marginRight: spacing.xs }} />
-                <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
-                  Your partner hasn't joined yet
+          <Animated.View entering={entrance(0)}>
+            <Card variant="filled" style={styles.block}>
+              <View style={styles.cardHead}>
+                <Ionicons name="person-add" size={iconSize.md} color={colors.primary} />
+                <Text variant="titleMedium" strong style={styles.cardTitle}>
+                  Your partner hasn&apos;t joined yet
                 </Text>
               </View>
-              <Text
-                style={[
-                  typography.bodyMedium,
-                  { color: colors.onSurfaceVariant, marginBottom: spacing.md },
-                ]}
-              >
+              <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.cardBody}>
                 Share your invitation code so they can join your private space.
               </Text>
               <Button
                 label="Show invitation"
-                variant="secondary"
+                variant="tonal"
                 onPress={() => router.push('/(app)/invite')}
               />
             </Card>
           </Animated.View>
         ) : null}
 
-        {/* Profile Name Prompt */}
-        {!hasName ? (
-          <Animated.View entering={getEntrance(2)}>
-            <Card style={{ marginBottom: spacing.lg }}>
-              <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
+        {!me?.displayName ? (
+          <Animated.View entering={entrance(1)}>
+            <Card variant="filled" style={styles.block}>
+              <Text variant="titleMedium" strong>
                 What should your partner call you?
               </Text>
-              <Text
-                style={[
-                  typography.bodyMedium,
-                  { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.md },
-                ]}
-              >
+              <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.cardBody}>
                 Set a display name so your partner knows who sent messages and added events.
               </Text>
               <Button
                 label="Set your name"
-                variant="secondary"
+                variant="tonal"
                 onPress={() => router.push('/(app)/profile')}
               />
             </Card>
           </Animated.View>
         ) : null}
 
-        {/* Next Up Widget Card */}
-        <Animated.View entering={getEntrance(3)}>
-          <Card style={{ marginBottom: spacing.xl }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, textTransform: 'uppercase' }]}>
-                Next up
+        <Animated.View entering={entrance(2)}>
+          <Card variant="elevated" style={styles.block}>
+            <View style={styles.cardHead}>
+              <Text variant="labelLarge" color="primary">
+                NEXT UP
               </Text>
-              <Text style={[typography.labelSmall, { color: colors.outline }]}>
-                {syncing
-                  ? 'Syncing…'
-                  : pendingCount > 0
-                    ? `${pendingCount} waiting`
-                    : 'Synced'}
+              <Text variant="labelMedium" color="onSurfaceVariant">
+                {syncing ? 'Syncing…' : pendingCount > 0 ? `${pendingCount} waiting` : 'Synced'}
               </Text>
             </View>
 
             {nextEvent ? (
-              <View style={{ marginTop: spacing.sm }}>
-                <Text style={[typography.headlineSmall, { color: colors.onSurface }]}>
+              <>
+                <Text variant="headlineSmall" strong style={styles.nextTitle}>
                   {nextEvent.title}
                 </Text>
-                <Text
-                  style={[
-                    typography.bodyMedium,
-                    { color: colors.onSurfaceVariant, marginTop: spacing.xs },
-                  ]}
-                >
-                  {formatEventRange(nextEvent)}
+                <Text variant="bodyMedium" color="onSurfaceVariant">
+                  {formatEventRange(nextEvent, settings.use24Hour)}
                 </Text>
-              </View>
+              </>
             ) : (
-              <Text
-                style={[
-                  typography.bodyMedium,
-                  { color: colors.onSurfaceVariant, marginTop: spacing.sm },
-                ]}
-              >
-                Nothing planned for today. Add something for the two of you.
+              <Text variant="bodyMedium" color="onSurfaceVariant" style={styles.nextTitle}>
+                Nothing planned yet. Add something for the two of you.
               </Text>
             )}
 
-            <View style={[styles.actions, { marginTop: spacing.lg }]}>
+            <View style={styles.actions}>
               <Button
                 label="New event"
-                variant="secondary"
+                icon="add"
+                variant="tonal"
                 onPress={() => router.push('/(app)/event/new')}
-                style={{ flex: 1 }}
+                style={styles.action}
               />
-              <View style={{ width: spacing.sm }} />
               <Button
                 label="Chat"
+                icon="chatbubble-ellipses"
                 onPress={() => router.push('/(app)/(tabs)/chat')}
-                style={{ flex: 1 }}
+                style={styles.action}
               />
             </View>
           </Card>
         </Animated.View>
 
-        {/* Upcoming Events List */}
-        <Animated.View entering={getEntrance(4)}>
+        <Animated.View entering={entrance(3)}>
           <View style={styles.sectionHeader}>
-            <Text style={[typography.titleLarge, { color: colors.onSurface }]}>
+            <Text variant="titleLarge" strong>
               Coming up
             </Text>
-            <PressableScale
+            <Button
+              label="See all"
+              variant="text"
               onPress={() => router.push('/(app)/(tabs)/calendar')}
-              hitSlop={8}
-              haptics="selection"
-              scaleTo={0.96}
-            >
-              <Text style={[typography.bodyMedium, { color: colors.primary }]}>See all</Text>
-            </PressableScale>
+            />
           </View>
 
           {upcoming.length === 0 ? (
@@ -280,41 +191,50 @@ export default function HomeScreen() {
               description="Events you both create will show up here."
             />
           ) : (
-            <View style={{ marginTop: spacing.xs }}>
+            <View style={styles.list}>
               {upcoming.map((event) => (
                 <EventRow
                   key={event.id}
                   event={event}
                   onPress={() => router.push(`/(app)/event/${event.id}`)}
                   creatorLabel={
-                    event.createdBy === userId
-                      ? undefined
-                      : (partner?.displayName || 'Partner')
+                    event.createdBy === userId ? undefined : partner?.displayName || 'Partner'
                   }
                 />
               ))}
             </View>
           )}
         </Animated.View>
-      </View>
-    </Screen>
+      </Screen>
+
+      <Fab
+        icon="add"
+        label="Event"
+        onPress={() => router.push('/(app)/event/new')}
+        accessibilityLabel="New event"
+        style={styles.fab}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 32,
-  },
-  actions: {
-    flexDirection: 'row',
-  },
+  root: { flex: 1 },
+  content: { paddingTop: spacing.lg, paddingBottom: 96 },
+  date: { marginBottom: spacing.lg },
+  block: { marginBottom: spacing.lg },
+  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTitle: { flex: 1, marginLeft: spacing.sm },
+  cardBody: { marginTop: spacing.xs, marginBottom: spacing.lg },
+  nextTitle: { marginTop: spacing.sm, marginBottom: spacing.xs },
+  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+  action: { flex: 1 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
+  list: { gap: spacing.sm },
+  fab: { position: 'absolute', right: spacing.lg, bottom: spacing.lg },
 });

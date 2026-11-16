@@ -1,20 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Text, View } from 'react-native';
 
 import { EventEditor } from '../../../../src/components/EventEditor';
 import { LoadingScreen } from '../../../../src/components/LoadingScreen';
 import { Screen } from '../../../../src/components/Screen';
-import { Button } from '../../../../src/components/Button';
+import { EmptyState } from '../../../../src/components/EmptyState';
+import { TopAppBar } from '../../../../src/components/TopAppBar';
 import { getEvent } from '../../../../src/db/events';
-import { useTheme } from '../../../../src/theme/ThemeProvider';
 import type { CalendarEvent } from '../../../../src/types';
 
 export default function EditEventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
-  const { colors, spacing, typography } = useTheme();
 
   const [event, setEvent] = useState<CalendarEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,23 +35,20 @@ export default function EditEventScreen() {
     };
   }, [db, id]);
 
-  if (loading) return <LoadingScreen label="Loading event" />;
+  if (loading) return <LoadingScreen message="Opening event" />;
 
   if (!event) {
     return (
-      <Screen>
-        <View style={{ paddingTop: spacing.xxl }}>
-          <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
-            Event not found
-          </Text>
-          <Button
-            label="Back"
-            variant="secondary"
-            onPress={() => router.back()}
-            style={{ marginTop: spacing.lg }}
+      <>
+        <TopAppBar title="Edit event" onBack={() => router.back()} />
+        <Screen>
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="Event not found"
+            description="It may have been deleted on the other phone."
           />
-        </View>
-      </Screen>
+        </Screen>
+      </>
     );
   }
 

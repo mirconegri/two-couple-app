@@ -1,31 +1,30 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Platform,
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
-import * as Haptics from 'expo-haptics';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Screen } from './Screen';
 import { TextField } from './TextField';
 import { Button } from './Button';
-import { NavBarButton } from './NavBarButton';
-import { SegmentedControl } from './SegmentedControl';
+import { Text } from './Text';
+import { TopAppBar } from './TopAppBar';
+import { IconButton } from './IconButton';
+import { ListSection } from './ListSection';
+import { ListRow } from './ListRow';
+import { SegmentedButton } from './SegmentedButton';
+import { SwitchRow } from './SwitchRow';
+import { Chip } from './Chip';
 import { PressableScale } from './PressableScale';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
+import { useSettings } from '../settings/SettingsProvider';
 import { useTheme } from '../theme/ThemeProvider';
-import { eventColors } from '../theme/tokens';
+import { useHaptics } from '../lib/haptics';
+import { eventColors, shape, spacing } from '../theme/tokens';
 import { enqueueEvent } from '../db/events';
 import { scheduleEventReminders } from '../notifications/reminders';
 import { newId } from '../lib/id';
@@ -40,125 +39,109 @@ const REMINDER_OPTIONS = [
   { label: '1 day', minutes: [1440] },
 ];
 
-interface EventEditorProps {
+export interface EventEditorProps {
   initialEvent?: CalendarEvent | null;
   defaultDate?: string;
 }
 
-function parseTimeToMinutes(timeStr: string): number {
-  const [h, m] = timeStr.split(':').map((part) => Number.parseInt(part, 10));
-  return (h ?? 0) * 60 + (m ?? 0);
+function parseTimeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map((part) => Number.parseInt(part, 10));
+  return (hours ?? 0) * 60 + (minutes ?? 0);
 }
 
-function timeStringToDate(timeStr: string, baseDate: Date): Date {
-  const [h, m] = timeStr.split(':').map((part) => Number.parseInt(part, 10));
-  const d = new Date(baseDate);
-  d.setHours(h ?? 0, m ?? 0, 0, 0);
-  return d;
+function timeStringToDate(time: string, baseDate: Date): Date {
+  const [hours, minutes] = time.split(':').map((part) => Number.parseInt(part, 10));
+  const date = new Date(baseDate);
+  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  return date;
+}
+
+function displayTime(time: string, baseDate: Date, use24Hour: boolean): string {
+  return format(timeStringToDate(time, baseDate), use24Hour ? 'HH:mm' : 'h:mm a');
 }
 
 export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
   const db = useSQLiteContext();
-  const { colors, spacing, typography, shape, scheme } = useTheme();
+  const { colors, scheme } = useTheme();
   const { coupleId, userId } = useAuth();
   const { notifyLocalChange } = useSync();
+  const { settings } = useSettings();
+  const haptics = useHaptics();
 
-  const getInitialDateKey = () => {
+  const initialDateKey = () => {
     if (initialEvent) {
       if (initialEvent.allDay && initialEvent.startsOn) return initialEvent.startsOn;
       if (initialEvent.startsAt) return toDateKey(new Date(initialEvent.startsAt));
     }
     const parsed = defaultDate ? parseDateKey(defaultDate) : new Date();
-    const safe = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-    return toDateKey(safe);
+    return toDateKey(Number.isNaN(parsed.getTime()) ? new Date() : parsed);
   };
 
-  const getInitialTime = (timeStr: string | null | undefined, fallback: string) => {
-    if (!timeStr) return fallback;
-    try {
-      return format(new Date(timeStr), 'HH:mm');
-    } catch {
-      return fallback;
-    }
+  const initialTime = (iso: string | null | undefined, fallback: string) => {
+    if (!iso) return fallback;
+    const parsed = new Date(iso);
+    return Number.isNaN(parsed.getTime()) ? fallback : format(parsed, 'HH:mm');
   };
 
   const [title, setTitle] = useState(initialEvent?.title ?? '');
   const [description, setDescription] = useState(initialEvent?.description ?? '');
   const [location, setLocation] = useState(initialEvent?.location ?? '');
   const [allDay, setAllDay] = useState(initialEvent?.allDay ?? true);
-  const [dateKey, setDateKey] = useState(getInitialDateKey);
-  const [startTime, setStartTime] = useState(() =>
-    getInitialTime(initialEvent?.startsAt, '18:00'),
-  );
-  const [endTime, setEndTime] = useState(() =>
-    getInitialTime(initialEvent?.endsAt, '19:00'),
-  );
-  const [visibility, setVisibility] = useState<EventVisibility>(
-    initialEvent?.visibility ?? 'shared',
-  );
-  const [reminders, setReminders] = useState<number[]>(
-    initialEvent?.reminderMinutes ?? [],
-  );
-  const [selectedColor, setSelectedColor] = useState<string | null>(
-    initialEvent?.color ?? null,
-  );
+  const [dateKey, setDateKey] = useState(initialDateKey);
+  const [startTime, setStartTime] = useState(() => initialTime(initialEvent?.startsAt, '18:00'));
+  const [endTime, setEndTime] = useState(() => initialTime(initialEvent?.endsAt, '19:00'));
+  const [visibility, setVisibility] = useState<EventVisibility>(initialEvent?.visibility ?? 'shared');
+  const [reminders, setReminders] = useState<number[]>(initialEvent?.reminderMinutes ?? []);
+  const [selectedColor, setSelectedColor] = useState<string | null>(initialEvent?.color ?? null);
 
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
-
+  const [picker, setPicker] = useState<'date' | 'start' | 'end' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
   const currentDate = useMemo(() => {
-    const d = parseDateKey(dateKey);
-    return Number.isNaN(d.getTime()) ? new Date() : d;
+    const parsed = parseDateKey(dateKey);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   }, [dateKey]);
 
+  const togglePicker = (next: 'date' | 'start' | 'end') => {
+    haptics.tick();
+    setPicker((current) => (current === next ? null : next));
+  };
+
   const onDateChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    if (event.type === 'set' && selected) {
-      setDateKey(toDateKey(selected));
-    }
+    if (Platform.OS === 'android') setPicker(null);
+    if (event.type === 'set' && selected) setDateKey(toDateKey(selected));
   };
 
   const onStartTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowStartTimePicker(false);
-    }
-    if (event.type === 'set' && selected) {
-      const newStartTime = format(selected, 'HH:mm');
-      setStartTime(newStartTime);
+    if (Platform.OS === 'android') setPicker(null);
+    if (event.type !== 'set' || !selected) return;
 
-      const startMins = parseTimeToMinutes(newStartTime);
-      const endMins = parseTimeToMinutes(endTime);
-
-      if (startMins >= endMins) {
-        const bumped = new Date(selected);
-        bumped.setHours(selected.getHours() + 1);
-        setEndTime(format(bumped, 'HH:mm'));
-      }
+    const next = format(selected, 'HH:mm');
+    setStartTime(next);
+    if (parseTimeToMinutes(next) >= parseTimeToMinutes(endTime)) {
+      const bumped = new Date(selected);
+      bumped.setHours(selected.getHours() + 1);
+      setEndTime(format(bumped, 'HH:mm'));
     }
   };
 
   const onEndTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowEndTimePicker(false);
-    }
-    if (event.type === 'set' && selected) {
-      const newEndTime = format(selected, 'HH:mm');
-      const startMins = parseTimeToMinutes(startTime);
-      const endMins = parseTimeToMinutes(newEndTime);
+    if (Platform.OS === 'android') setPicker(null);
+    if (event.type !== 'set' || !selected) return;
 
-      if (endMins <= startMins) {
-        const startDate = timeStringToDate(startTime, currentDate);
-        startDate.setHours(startDate.getHours() + 1);
-        setEndTime(format(startDate, 'HH:mm'));
-      } else {
-        setEndTime(newEndTime);
-      }
+    const next = format(selected, 'HH:mm');
+    if (parseTimeToMinutes(next) <= parseTimeToMinutes(startTime)) {
+      const bumped = timeStringToDate(startTime, currentDate);
+      bumped.setHours(bumped.getHours() + 1);
+      setEndTime(format(bumped, 'HH:mm'));
+    } else {
+      setEndTime(next);
     }
   };
 
@@ -175,8 +158,6 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
     setError(null);
 
     try {
-      const now = new Date().toISOString();
-
       let startsOn: string | null = null;
       let endsOn: string | null = null;
       let startsAt: string | null = null;
@@ -188,14 +169,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
         endsOn = dateKey;
       } else {
         const base = parseDateKey(dateKey);
-        const [startHour, startMinute] = startTime.split(':').map(Number);
-        const [endHour, endMinute] = endTime.split(':').map(Number);
-
-        const start = new Date(base);
-        start.setHours(startHour ?? 0, startMinute ?? 0, 0, 0);
-
-        const end = new Date(base);
-        end.setHours(endHour ?? 0, endMinute ?? 0, 0, 0);
+        const start = timeStringToDate(startTime, base);
+        const end = timeStringToDate(endTime, base);
         if (end <= start) end.setDate(end.getDate() + 1);
 
         startsAt = start.toISOString();
@@ -220,7 +195,7 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
         category: initialEvent?.category ?? null,
         color: selectedColor,
         reminderMinutes: reminders,
-        updatedAt: now,
+        updatedAt: new Date().toISOString(),
         deletedAt: null,
         syncStatus: 'pending',
       };
@@ -229,7 +204,7 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
       await scheduleEventReminders(event);
 
       notifyLocalChange();
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.confirm();
       router.back();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -238,355 +213,217 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
     }
   };
 
+  const pickerRow = (
+    mode: 'date' | 'start' | 'end',
+    icon: keyof typeof Ionicons.glyphMap,
+    label: string,
+    value: string,
+  ) => (
+    <ListRow
+      icon={icon}
+      title={label}
+      value={value}
+      onPress={() => togglePicker(mode)}
+      trailing={
+        picker === mode ? (
+          <Ionicons name="chevron-up" size={20} color={colors.onSurfaceVariant} />
+        ) : undefined
+      }
+    />
+  );
+
+  const renderPicker = (mode: 'date' | 'start' | 'end') => {
+    if (picker !== mode) return null;
+    if (mode === 'date') {
+      return (
+        <DateTimePicker
+          value={currentDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          themeVariant={scheme}
+          onChange={onDateChange}
+        />
+      );
+    }
+    return (
+      <DateTimePicker
+        value={timeStringToDate(mode === 'start' ? startTime : endTime, currentDate)}
+        mode="time"
+        is24Hour={settings.use24Hour}
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        themeVariant={scheme}
+        onChange={mode === 'start' ? onStartTimeChange : onEndTimeChange}
+      />
+    );
+  };
+
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.lg }}>
-        <View style={styles.headerRow}>
-          <NavBarButton label="Cancel" onPress={() => router.back()} />
-          <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
-            {initialEvent ? 'Edit event' : 'New event'}
-          </Text>
-          <NavBarButton
-            label="Save"
-            bold
+    <>
+      <TopAppBar
+        title={initialEvent ? 'Edit event' : 'New event'}
+        scrollY={scrollY}
+        onBack={() => router.back()}
+        actions={
+          <IconButton
+            icon="checkmark"
+            variant="filled"
             onPress={save}
             disabled={busy || title.trim().length === 0}
+            accessibilityLabel="Save event"
           />
-        </View>
+        }
+      />
 
+      <Screen scroll onScroll={scrollHandler} contentStyle={styles.content}>
         <TextField
           label="Title"
           value={title}
           onChangeText={setTitle}
-          placeholder="Dinner, trip, anniversary…"
           maxLength={200}
+          autoFocus={!initialEvent}
         />
 
-        {/* Date picker row */}
-        <View style={{ marginBottom: spacing.lg }}>
-          <Text
-            style={[
-              typography.bodySmall,
-              { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
-            ]}
-          >
-            Date
-          </Text>
-          <Pressable
-            onPress={() => {
-              setShowDatePicker((prev) => !prev);
-              setShowStartTimePicker(false);
-              setShowEndTimePicker(false);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Select date"
-            style={[
-              styles.pickerRow,
-              {
-                backgroundColor: colors.surfaceContainerLow,
-                borderColor: showDatePicker ? colors.primary : colors.outlineVariant,
-                borderRadius: shape.md,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.md,
-              },
-            ]}
-          >
-            <Text style={[typography.bodyLarge, { color: colors.onSurface, flex: 1 }]}>
-              {format(currentDate, 'EEEE, d MMMM yyyy')}
-            </Text>
-            <Ionicons name="calendar-outline" size={20} color={colors.onSurfaceVariant} />
-          </Pressable>
-
-          {showDatePicker ? (
-            <View style={Platform.OS === 'ios' ? { marginTop: spacing.sm } : undefined}>
-              <DateTimePicker
-                value={currentDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                themeVariant={scheme}
-                onChange={onDateChange}
-              />
-            </View>
+        <ListSection title="When">
+          {pickerRow('date', 'calendar-outline', 'Date', format(currentDate, 'EEE d MMM yyyy'))}
+          <SwitchRow icon="time-outline" title="All day" value={allDay} onChange={setAllDay} />
+          {!allDay ? (
+            <>
+              {pickerRow(
+                'start',
+                'play-outline',
+                'Starts',
+                displayTime(startTime, currentDate, settings.use24Hour),
+              )}
+              {pickerRow(
+                'end',
+                'stop-outline',
+                'Ends',
+                displayTime(endTime, currentDate, settings.use24Hour),
+              )}
+            </>
           ) : null}
-        </View>
+        </ListSection>
 
-        <View style={[styles.switchRow, { marginBottom: spacing.lg }]}>
-          <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>All day</Text>
-          <Switch value={allDay} onValueChange={setAllDay} />
-        </View>
+        {picker ? <View style={styles.picker}>{renderPicker(picker)}</View> : null}
 
-        {!allDay ? (
-          <View style={[styles.timeRow, { marginBottom: spacing.lg }]}>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  typography.bodySmall,
-                  { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
-                ]}
-              >
-                Start
-              </Text>
-              <Pressable
-                onPress={() => {
-                  setShowStartTimePicker((prev) => !prev);
-                  setShowEndTimePicker(false);
-                  setShowDatePicker(false);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Select start time"
-                style={[
-                  styles.pickerRow,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: showStartTimePicker ? colors.primary : colors.outlineVariant,
-                    borderRadius: shape.md,
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.md,
-                  },
-                ]}
-              >
-                <Text style={[typography.bodyLarge, { color: colors.onSurface, flex: 1 }]}>
-                  {startTime}
-                </Text>
-                <Ionicons name="time-outline" size={18} color={colors.onSurfaceVariant} />
-              </Pressable>
+        <TextField label="Location" value={location} onChangeText={setLocation} maxLength={300} />
 
-              {showStartTimePicker ? (
-                <View
-                  style={Platform.OS === 'ios' ? { marginTop: spacing.sm } : undefined}
-                >
-                  <DateTimePicker
-                    value={timeStringToDate(startTime, currentDate)}
-                    mode="time"
-                    is24Hour
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    themeVariant={scheme}
-                    onChange={onStartTimeChange}
-                  />
-                </View>
-              ) : null}
-            </View>
-
-            <View style={{ width: spacing.md }} />
-
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  typography.bodySmall,
-                  { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
-                ]}
-              >
-                End
-              </Text>
-              <Pressable
-                onPress={() => {
-                  setShowEndTimePicker((prev) => !prev);
-                  setShowStartTimePicker(false);
-                  setShowDatePicker(false);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Select end time"
-                style={[
-                  styles.pickerRow,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: showEndTimePicker ? colors.primary : colors.outlineVariant,
-                    borderRadius: shape.md,
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.md,
-                  },
-                ]}
-              >
-                <Text style={[typography.bodyLarge, { color: colors.onSurface, flex: 1 }]}>
-                  {endTime}
-                </Text>
-                <Ionicons name="time-outline" size={18} color={colors.onSurfaceVariant} />
-              </Pressable>
-
-              {showEndTimePicker ? (
-                <View
-                  style={Platform.OS === 'ios' ? { marginTop: spacing.sm } : undefined}
-                >
-                  <DateTimePicker
-                    value={timeStringToDate(endTime, currentDate)}
-                    mode="time"
-                    is24Hour
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    themeVariant={scheme}
-                    onChange={onEndTimeChange}
-                  />
-                </View>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
+        <View style={styles.gap} />
 
         <TextField
-          label="Location (optional)"
-          value={location}
-          onChangeText={setLocation}
-          placeholder="Somewhere"
-          maxLength={300}
-        />
-
-        <TextField
-          label="Notes (optional)"
+          label="Notes"
           value={description}
           onChangeText={setDescription}
-          placeholder="Anything worth remembering"
           multiline
           numberOfLines={3}
           maxLength={4000}
-          style={{ minHeight: 80, textAlignVertical: 'top' }}
+          style={styles.notes}
         />
 
-        <Text
-          style={[
-            typography.bodySmall,
-            { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
-          ]}
-        >
-          Color
-        </Text>
-
-        <View style={[styles.swatchRow, { marginBottom: spacing.lg }]}>
-          {[null, ...eventColors].map((swatch) => {
-            const isSelected = selectedColor === swatch;
-            return (
-              <PressableScale
-                key={swatch ?? 'default'}
-                onPress={() => setSelectedColor(swatch)}
-                haptics="selection"
-                scaleTo={0.92}
-                accessibilityRole="button"
-                accessibilityLabel={swatch ? `Color ${swatch}` : 'Default color'}
-                accessibilityState={{ selected: isSelected }}
-                style={[
-                  styles.swatch,
-                  {
-                    backgroundColor: swatch ?? colors.surfaceContainerHigh,
-                    borderColor: isSelected ? colors.onSurface : colors.outlineVariant,
-                    borderWidth: isSelected ? 2 : 1,
-                  },
-                ]}
-              >
-                {!swatch ? (
-                  <Ionicons name="ban-outline" size={16} color={colors.onSurfaceVariant} />
-                ) : isSelected ? (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                ) : null}
-              </PressableScale>
-            );
-          })}
-        </View>
-
-        <Text
-          style={[
-            typography.bodySmall,
-            { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
-          ]}
-        >
-          Who can see it
-        </Text>
-
-        <SegmentedControl
-          options={[
-            { value: 'shared', label: 'Both of us' },
-            { value: 'private', label: 'Only me' },
-          ]}
-          value={visibility}
-          onChange={setVisibility}
-          style={{ marginBottom: spacing.lg }}
-        />
-
-        <Text
-          style={[
-            typography.bodySmall,
-            { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
-          ]}
-        >
-          Reminder
-        </Text>
-
-        <View style={[styles.pillRow, { marginBottom: spacing.xl }]}>
-          {REMINDER_OPTIONS.map((option) => {
-            const active =
-              option.minutes.length === reminders.length &&
-              option.minutes.every((value) => reminders.includes(value));
-
-            return (
-              <PressableScale
-                key={option.label}
-                onPress={() => setReminders(option.minutes)}
-                haptics="selection"
-                scaleTo={0.94}
-                style={[
-                  styles.pill,
-                  {
-                    backgroundColor: active ? colors.primary : colors.surfaceContainerHigh,
-                    borderRadius: shape.full,
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.sm,
-                  },
-                ]}
-              >
-                <Text
+        <ListSection title="Colour">
+          <View style={styles.swatches}>
+            {[null, ...eventColors].map((swatch) => {
+              const selected = selectedColor === swatch;
+              return (
+                <PressableScale
+                  key={swatch ?? 'default'}
+                  onPress={() => {
+                    haptics.selection();
+                    setSelectedColor(swatch);
+                  }}
+                  scaleTo={0.88}
+                  haptics={null}
+                  accessibilityRole="button"
+                  accessibilityLabel={swatch ? `Colour ${swatch}` : 'No colour'}
+                  accessibilityState={{ selected }}
                   style={[
-                    typography.bodySmall,
-                    { color: active ? colors.onPrimary : colors.onSurfaceVariant },
+                    styles.swatch,
+                    {
+                      backgroundColor: swatch ?? colors.surfaceContainerHighest,
+                      borderColor: selected ? colors.onSurface : colors.outlineVariant,
+                    },
                   ]}
                 >
-                  {option.label}
-                </Text>
-              </PressableScale>
-            );
-          })}
-        </View>
+                  {!swatch ? (
+                    <Ionicons name="ban-outline" size={18} color={colors.onSurfaceVariant} />
+                  ) : selected ? (
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  ) : null}
+                </PressableScale>
+              );
+            })}
+          </View>
+        </ListSection>
 
-        <Button label="Save event" onPress={save} loading={busy} />
+        <ListSection title="Visibility">
+          <View style={styles.padded}>
+            <SegmentedButton
+              options={[
+                { value: 'shared', label: 'Both of us' },
+                { value: 'private', label: 'Only me' },
+              ]}
+              value={visibility}
+              onChange={setVisibility}
+            />
+          </View>
+        </ListSection>
+
+        <ListSection title="Reminder" footer="Reminders are scheduled on this device only.">
+          <View style={styles.chips}>
+            {REMINDER_OPTIONS.map((option) => {
+              const selected =
+                option.minutes.length === reminders.length &&
+                option.minutes.every((value) => reminders.includes(value));
+              return (
+                <Chip
+                  key={option.label}
+                  label={option.label}
+                  selected={selected}
+                  onPress={() => setReminders(option.minutes)}
+                />
+              );
+            })}
+          </View>
+        </ListSection>
+
+        <Button
+          label={initialEvent ? 'Save changes' : 'Add event'}
+          onPress={save}
+          size="medium"
+          fullWidth
+          loading={busy}
+        />
 
         {error ? (
-          <Text
-            style={[
-              typography.bodySmall,
-              { color: colors.error, marginTop: spacing.md },
-            ]}
-          >
+          <Text variant="bodySmall" color="error" style={styles.error}>
             {error}
           </Text>
         ) : null}
-      </View>
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
+  content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  gap: { height: spacing.lg },
+  notes: { height: 96, textAlignVertical: 'top', paddingTop: spacing.md },
+  picker: { marginBottom: spacing.xl },
+  padded: { padding: spacing.lg },
+  swatches: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    padding: spacing.lg,
   },
-  pickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  timeRow: { flexDirection: 'row' },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { alignItems: 'center', justifyContent: 'center' },
-  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   swatch: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
+    width: 40,
+    height: 40,
+    borderRadius: shape.full,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, padding: spacing.lg },
+  error: { marginTop: spacing.md },
 });

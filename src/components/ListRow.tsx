@@ -1,110 +1,92 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../theme/ThemeProvider';
+import { iconSize, shape, spacing } from '../theme/tokens';
 import { PressableScale } from './PressableScale';
+import { Text } from './Text';
 
-interface ListRowProps {
-  label: string;
-  value?: string | null;
+export interface ListRowProps {
+  title: string;
+  supporting?: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  iconBg?: string;
+  /** Container behind the leading icon. Material list items usually omit it. */
+  iconBackground?: string;
   iconColor?: string;
+  value?: string;
+  trailing?: React.ReactNode;
   chevron?: boolean;
   onPress?: () => void;
-  rightAction?: React.ReactNode;
   destructive?: boolean;
   disabled?: boolean;
 }
 
 export function ListRow({
-  label,
-  value,
+  title,
+  supporting,
   icon,
-  iconBg,
-  iconColor = '#FFFFFF',
+  iconBackground,
+  iconColor,
+  value,
+  trailing,
   chevron = false,
   onPress,
-  rightAction,
   destructive = false,
   disabled = false,
 }: ListRowProps) {
-  const { colors, shape, spacing, typography } = useTheme();
-
-  const isInteractive = Boolean(onPress) && !disabled;
+  const { colors } = useTheme();
+  const tint = destructive ? colors.error : (iconColor ?? colors.onSurfaceVariant);
 
   const content = (
-    <View style={[styles.row, { paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}>
+    <View style={styles.row}>
       {icon ? (
         <View
           style={[
-            styles.iconWrap,
-            {
-              backgroundColor: iconBg ?? colors.primary,
-              borderRadius: shape.sm,
-              marginRight: spacing.md,
-            },
+            styles.leading,
+            iconBackground ? { backgroundColor: iconBackground, borderRadius: shape.full } : null,
           ]}
         >
-          <Ionicons name={icon} size={18} color={iconColor} />
+          <Ionicons name={icon} size={iconSize.md} color={iconBackground ? '#FFFFFF' : tint} />
         </View>
       ) : null}
 
-      <Text
-        style={[
-          typography.bodyLarge,
-          styles.label,
-          {
-            color: destructive ? colors.error : colors.onSurface,
-            flex: 1,
-          },
-        ]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
+      <View style={styles.labels}>
+        <Text variant="bodyLarge" color={destructive ? 'error' : 'onSurface'} numberOfLines={1}>
+          {title}
+        </Text>
+        {supporting ? (
+          <Text variant="bodyMedium" color="onSurfaceVariant" numberOfLines={2}>
+            {supporting}
+          </Text>
+        ) : null}
+      </View>
 
-      {value !== undefined && value !== null ? (
-        <Text
-          style={[
-            typography.bodyLarge,
-            styles.value,
-            {
-              color: colors.onSurfaceVariant,
-              marginRight: chevron ? spacing.xs : 0,
-            },
-          ]}
-          numberOfLines={1}
-        >
+      {value ? (
+        <Text variant="bodyMedium" color="onSurfaceVariant" numberOfLines={1}>
           {value}
         </Text>
       ) : null}
 
-      {rightAction ? (
-        <View style={chevron ? { marginRight: spacing.xs } : undefined}>
-          {rightAction}
-        </View>
-      ) : null}
+      {trailing}
 
       {chevron ? (
-        <Ionicons name="chevron-forward" size={17} color={colors.outline} />
+        <Ionicons name="chevron-forward" size={iconSize.md} color={colors.onSurfaceVariant} />
       ) : null}
     </View>
   );
 
-  if (!isInteractive) {
-    return content;
+  if (!onPress || disabled) {
+    return <View style={disabled ? styles.disabled : undefined}>{content}</View>;
   }
 
   return (
     <PressableScale
       onPress={onPress}
-      disabled={disabled}
-      scaleTo={0.98}
       haptics="selection"
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={title}
+      accessibilityState={{ disabled }}
     >
       {content}
     </PressableScale>
@@ -115,18 +97,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 46,
+    gap: spacing.lg,
+    minHeight: 56,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  iconWrap: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    letterSpacing: -0.4,
-  },
-  value: {
-    letterSpacing: -0.4,
-  },
+  leading: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  labels: { flex: 1, gap: 2 },
+  disabled: { opacity: 0.38 },
 });

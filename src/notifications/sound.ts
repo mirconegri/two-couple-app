@@ -15,32 +15,32 @@ export interface NotificationSoundOption {
 export const NOTIFICATION_SOUNDS: NotificationSoundOption[] = [
   {
     id: 'default',
-    label: 'Predefinito',
-    description: 'Suono di sistema Android standard',
+    label: 'System',
+    description: 'The standard Android notification sound',
     icon: 'volume-high-outline',
   },
   {
     id: 'chime',
-    label: 'Trillo dolce',
-    description: 'Tono romantico e delicato',
+    label: 'Soft chime',
+    description: 'Gentle two-tone ring',
     icon: 'musical-notes-outline',
   },
   {
     id: 'bell',
-    label: 'Campanella',
-    description: 'Suono limpido e squillante',
+    label: 'Bell',
+    description: 'Clear, bright bell',
     icon: 'notifications-outline',
   },
   {
     id: 'pop',
-    label: 'Bolle Pop',
-    description: 'Tono giocoso e moderno',
+    label: 'Pop',
+    description: 'Short and playful',
     icon: 'chatbubble-ellipses-outline',
   },
   {
     id: 'silent',
-    label: 'Solo vibrazione',
-    description: 'Nessun suono udibile',
+    label: 'Vibrate only',
+    description: 'No audible sound',
     icon: 'volume-mute-outline',
   },
 ];
@@ -50,11 +50,11 @@ const STORAGE_KEY = '@twocouple_notification_sound_v1';
 export async function loadNotificationSound(): Promise<NotificationSoundId> {
   try {
     const sound = await AsyncStorage.getItem(STORAGE_KEY);
-    if (sound && ['default', 'chime', 'bell', 'pop', 'silent'].includes(sound)) {
+    if (sound && NOTIFICATION_SOUNDS.some((option) => option.id === sound)) {
       return sound as NotificationSoundId;
     }
   } catch {
-    // Fallback to default
+    // Fall back to the system sound.
   }
   return 'default';
 }
@@ -65,31 +65,39 @@ export async function saveNotificationSound(sound: NotificationSoundId): Promise
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('messages', {
         name: 'Messages',
-        importance: sound === 'silent' ? Notifications.AndroidImportance.LOW : Notifications.AndroidImportance.HIGH,
+        importance:
+          sound === 'silent'
+            ? Notifications.AndroidImportance.LOW
+            : Notifications.AndroidImportance.HIGH,
         vibrationPattern: sound === 'silent' ? [] : [0, 250, 250, 250],
-        lightColor: '#0F766E',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         sound: sound === 'silent' ? null : 'default',
         enableVibrate: sound !== 'silent',
       });
     }
   } catch {
-    // Best-effort
+    // Best-effort persistence.
   }
 }
 
-export async function playSoundPreview(sound: NotificationSoundId): Promise<void> {
+/** Each option is previewed with a distinct vibration because no audio files ship with the app. */
+export async function playSoundPreview(
+  sound: NotificationSoundId,
+  hapticsEnabled: boolean,
+): Promise<void> {
+  if (!hapticsEnabled) return;
+
   if (sound === 'silent') {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     return;
   }
-  if (sound === 'chime') {
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  } else if (sound === 'bell') {
+  if (sound === 'bell') {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-  } else if (sound === 'pop') {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  } else {
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    return;
   }
+  if (sound === 'pop') {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    return;
+  }
+  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 }

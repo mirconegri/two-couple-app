@@ -1,31 +1,51 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import * as Haptics from 'expo-haptics';
 
 import { Screen } from '../../../src/components/Screen';
 import { ListSection } from '../../../src/components/ListSection';
 import { ListRow } from '../../../src/components/ListRow';
-import { NavBarButton } from '../../../src/components/NavBarButton';
-import { StatusPill } from '../../../src/components/StatusPill';
 import { LoadingScreen } from '../../../src/components/LoadingScreen';
 import { Button } from '../../../src/components/Button';
+import { Text } from '../../../src/components/Text';
+import { TopAppBar } from '../../../src/components/TopAppBar';
+import { IconButton } from '../../../src/components/IconButton';
+import { EmptyState } from '../../../src/components/EmptyState';
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { useSync } from '../../../src/sync/SyncProvider';
 import { useTheme } from '../../../src/theme/ThemeProvider';
+import { useSettings } from '../../../src/settings/SettingsProvider';
+import { useHaptics } from '../../../src/lib/haptics';
 import { enqueueEventDeletion, getEvent } from '../../../src/db/events';
 import { cancelEventReminders } from '../../../src/notifications/reminders';
 import { formatEventRange } from '../../../src/utils/date';
 import { errorMessage } from '../../../src/utils/errors';
+import { shape, spacing } from '../../../src/theme/tokens';
 import type { CalendarEvent } from '../../../src/types';
+
+function reminderLabel(minutes: number): string {
+  if (minutes >= 1440) {
+    const days = minutes / 1440;
+    return days === 1 ? '1 day before' : `${days} days before`;
+  }
+  if (minutes >= 60) {
+    const hours = minutes / 60;
+    return hours === 1 ? '1 hour before' : `${hours} hours before`;
+  }
+  return `${minutes} min before`;
+}
+
+const SYNC_LABEL = { sent: 'Synced', pending: 'Waiting', failed: 'Not synced' } as const;
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
-  const { colors, spacing, typography } = useTheme();
+  const { colors } = useTheme();
+  const { settings } = useSettings();
   const { userId, members } = useAuth();
   const { notifyLocalChange, lastSyncedAt } = useSync();
+  const haptics = useHaptics();
 
   const [event, setEvent] = useState<CalendarEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,8 +53,7 @@ export default function EventDetailScreen() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const row = await getEvent(db, id);
-    setEvent(row);
+    setEvent(await getEvent(db, id));
     setLoading(false);
   }, [db, id]);
 
@@ -44,199 +63,174 @@ export default function EventDetailScreen() {
 
   const remove = () => {
     if (!event) return;
+    haptics.longPress();
 
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-    Alert.alert(
-      'Delete this event?',
-      'It will be removed from both phones. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                await enqueueEventDeletion(db, event);
-                await cancelEventReminders(event.id);
-                notifyLocalChange();
-                router.back();
-              } catch (caught) {
-                setError(errorMessage(caught));
-              }
-            })();
-          },
+    Alert.alert('Delete this event?', 'It will be removed from both phones. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await enqueueEventDeletion(db, event);
+              await cancelEventReminders(event.id);
+              notifyLocalChange();
+              router.back();
+            } catch (caught) {
+              setError(errorMessage(caught));
+            }
+          })();
         },
-      ],
-    );
+      },
+    ]);
   };
 
-  if (loading) return <LoadingScreen label="Opening event" />;
+  if (loading) return <LoadingScreen message="Opening event" />;
 
   if (!event) {
     return (
-      <Screen>
-        <View style={{ paddingTop: spacing.xxl }}>
-          <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
-            This event is not on this device
-          </Text>
-          <Text style={[typography.bodyLarge, { color: colors.onSurfaceVariant, marginTop: spacing.sm }]}>
-            It may have been deleted, or it was created while you were offline.
-          </Text>
-          <Button
-            label="Back"
-            variant="secondary"
-            onPress={() => router.back()}
-            style={{ marginTop: spacing.lg }}
+      <>
+        <TopAppBar title="Event" onBack={() => router.back()} />
+        <Screen>
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="Not on this device"
+            description="It may have been deleted, or it was created while you were offline."
           />
-        </View>
-      </Screen>
+        </Screen>
+      </>
     );
   }
 
   const isMine = event.createdBy === userId;
   const canModify = !event.deletedAt && (isMine || event.visibility === 'shared');
-  const creator = members.find((m) => m.userId === event.createdBy);
-  const creatorName = isMine ? 'You' : (creator?.displayName || 'Your partner');
+  const creatorName = isMine
+    ? 'You'
+    : members.find((member) => member.userId === event.createdBy)?.displayName || 'Your partner';
 
   return (
-    <Screen scroll>
-      <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-        {/* Navigation Bar */}
-        <View style={styles.navBar}>
-          <NavBarButton
-            icon="chevron-back"
-            label="Calendar"
-            onPress={() => router.back()}
-          />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <StatusPill
-              label={
-                event.syncStatus === 'sent'
-                  ? 'Synced'
-                  : event.syncStatus === 'pending'
-                    ? 'Waiting'
-                    : 'Failed'
-              }
-              tone={
-                event.syncStatus === 'sent'
-                  ? 'success'
-                  : event.syncStatus === 'pending'
-                    ? 'pending'
-                    : 'danger'
-              }
+    <>
+      <TopAppBar
+        title={event.title}
+        onBack={() => router.back()}
+        actions={
+          canModify ? (
+            <IconButton
+              icon="pencil"
+              variant="tonal"
+              onPress={() => router.push(`/(app)/event/${event.id}/edit`)}
+              accessibilityLabel="Edit event"
             />
-            {canModify ? (
-              <NavBarButton
-                label="Edit"
-                bold
-                onPress={() => router.push(`/(app)/event/${event.id}/edit`)}
-              />
-            ) : null}
+          ) : undefined
+        }
+      />
+
+      <Screen scroll contentStyle={styles.content}>
+        <View style={styles.headerRow}>
+          <View
+            style={[
+              styles.stripe,
+              { backgroundColor: event.color ?? colors.primary, borderRadius: shape.full },
+            ]}
+          />
+          <View style={styles.headerText}>
+            <Text variant="headlineSmall" strong>
+              {event.title}
+            </Text>
+            <Text variant="bodyLarge" color="onSurfaceVariant">
+              {formatEventRange(event, settings.use24Hour)}
+            </Text>
           </View>
         </View>
 
-        {/* Title & Date */}
-        <Text style={[typography.displaySmall, { color: colors.onSurface, marginTop: spacing.sm }]}>
-          {event.title}
-        </Text>
-
-        <Text
-          style={[
-            typography.bodyMedium,
-            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xl },
-          ]}
-        >
-          {formatEventRange(event)}
-        </Text>
-
-        {/* Details Section */}
         <ListSection title="Details">
           <ListRow
-            label="Visibility"
-            value={event.visibility === 'shared' ? 'Both of us' : 'Only me'}
             icon="eye"
-            iconBg={colors.primary}
+            title="Visibility"
+            value={event.visibility === 'shared' ? 'Both of us' : 'Only me'}
           />
           <ListRow
-            label="Color"
-            value={event.color ? undefined : 'Default (follows theme)'}
             icon="color-palette"
-            iconBg={event.color ?? colors.primary}
-            rightAction={
+            title="Colour"
+            value={event.color ? undefined : 'Theme default'}
+            trailing={
               event.color ? (
-                <View
-                  style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: 7,
-                    backgroundColor: event.color,
-                  }}
-                />
+                <View style={[styles.dot, { backgroundColor: event.color }]} />
               ) : undefined
             }
           />
-          {event.location ? (
-            <ListRow
-              label="Where"
-              value={event.location}
-              icon="location"
-              iconBg="#FF9500"
-            />
-          ) : null}
+          {event.location ? <ListRow icon="location" title="Where" value={event.location} /> : null}
           {event.reminderMinutes.length > 0 ? (
             <ListRow
-              label="Reminder"
-              value={event.reminderMinutes
-                .map((minutes) =>
-                  minutes >= 1440 ? `${minutes / 1440} day before` : `${minutes} min before`,
-                )
-                .join(', ')}
               icon="notifications"
-              iconBg="#FF3B30"
+              title="Reminder"
+              value={event.reminderMinutes.map(reminderLabel).join(', ')}
             />
           ) : null}
+          <ListRow icon="person" title="Created by" value={creatorName} />
           <ListRow
-            label="Created by"
-            value={creatorName}
-            icon="person"
-            iconBg="#5856D6"
+            icon={
+              event.syncStatus === 'failed'
+                ? 'cloud-offline'
+                : event.syncStatus === 'pending'
+                  ? 'cloud-upload'
+                  : 'cloud-done'
+            }
+            title="Sync"
+            value={SYNC_LABEL[event.syncStatus]}
           />
         </ListSection>
 
         {event.description ? (
           <ListSection title="Notes">
-            <View style={{ padding: spacing.lg }}>
-              <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>{event.description}</Text>
+            <View style={styles.notes}>
+              <Text variant="bodyLarge" selectable>
+                {event.description}
+              </Text>
             </View>
           </ListSection>
         ) : null}
 
         {canModify ? (
-          <ListSection>
-            <ListRow
-              label="Delete Event"
-              destructive
-              onPress={remove}
+          <>
+            <Button
+              label="Edit event"
+              icon="pencil"
+              variant="tonal"
+              onPress={() => router.push(`/(app)/event/${event.id}/edit`)}
+              size="medium"
+              fullWidth
             />
-          </ListSection>
+            <View style={styles.gap} />
+            <Button
+              label="Delete event"
+              icon="trash-outline"
+              variant="danger"
+              onPress={remove}
+              size="medium"
+              fullWidth
+            />
+          </>
         ) : null}
 
         {error ? (
-          <Text style={[typography.bodySmall, { color: colors.error, marginTop: spacing.md, textAlign: 'center' }]}>
+          <Text variant="bodySmall" color="error" style={styles.error}>
             {error}
           </Text>
         ) : null}
-      </View>
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 36,
-  },
+  content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  headerRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.xl },
+  stripe: { width: 6, alignSelf: 'stretch' },
+  headerText: { flex: 1, gap: spacing.xs },
+  dot: { width: 16, height: 16, borderRadius: shape.full },
+  notes: { padding: spacing.lg },
+  gap: { height: spacing.sm },
+  error: { marginTop: spacing.md, textAlign: 'center' },
 });

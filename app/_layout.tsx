@@ -16,12 +16,13 @@ import * as SystemUI from 'expo-system-ui';
 
 import { DATABASE_NAME, initDatabase } from '../src/db';
 import { AuthProvider } from '../src/auth/AuthProvider';
+import { SettingsProvider, useSettings } from '../src/settings/SettingsProvider';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
 import { WallpaperProvider } from '../src/theme/WallpaperProvider';
 import { SyncProvider } from '../src/sync/SyncProvider';
 import { configureNotificationChannels } from '../src/notifications/reminders';
 
-// Keep the splash screen visible while theme preferences and resources are loaded
+// The splash stays up until stored settings are read, so the first frame already has the right theme.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Ensure Android notification channels exist before any notification is scheduled.
@@ -39,6 +40,11 @@ Notifications.setNotificationHandler({
 
 function RootNavigator() {
   const { colors, scheme } = useTheme();
+  const { ready } = useSettings();
+
+  useEffect(() => {
+    if (ready) void SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
 
   // Keep Android root window background in sync with theme to eliminate transition flashes
   useEffect(() => {
@@ -60,9 +66,11 @@ function RootNavigator() {
     };
   }, [colors, scheme]);
 
+  if (!ready) return null;
+
   return (
     <NavigationThemeProvider value={navTheme}>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.surface} />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} backgroundColor="transparent" />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -89,17 +97,19 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <KeyboardProvider>
-          <ThemeProvider>
-            <WallpaperProvider>
-              <SQLiteProvider databaseName={DATABASE_NAME} onInit={onInit} useSuspense={false}>
-                <AuthProvider>
-                  <SyncProvider>
-                    <RootNavigator />
-                  </SyncProvider>
-                </AuthProvider>
-              </SQLiteProvider>
-            </WallpaperProvider>
-          </ThemeProvider>
+          <SettingsProvider>
+            <ThemeProvider>
+              <WallpaperProvider>
+                <SQLiteProvider databaseName={DATABASE_NAME} onInit={onInit} useSuspense={false}>
+                  <AuthProvider>
+                    <SyncProvider>
+                      <RootNavigator />
+                    </SyncProvider>
+                  </AuthProvider>
+                </SQLiteProvider>
+              </WallpaperProvider>
+            </ThemeProvider>
+          </SettingsProvider>
         </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
