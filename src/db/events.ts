@@ -37,7 +37,7 @@ function parseReminderMinutes(raw: string): number[] {
   }
 }
 
-export function mapEventRow(row: EventRow): CalendarEvent {
+function mapEventRow(row: EventRow): CalendarEvent {
   return {
     id: row.id,
     coupleId: row.couple_id,
@@ -174,7 +174,7 @@ export interface PushEventPayload {
   reminderMinutes: number[];
 }
 
-export function toPushEventPayload(
+function toPushEventPayload(
   event: CalendarEvent | EventDraft,
   deletedAt: string | null = null,
 ): PushEventPayload & { deletedAt: string | null } {

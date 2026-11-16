@@ -31,7 +31,7 @@ export function parseDateKey(key: string): Date {
  * Format an instant in a specific IANA timezone.
  * Intl is used directly so there is no dependency to drift or break.
  */
-export function formatInZone(
+function formatInZone(
   iso: string,
   timeZone: string,
   options: Intl.DateTimeFormatOptions,

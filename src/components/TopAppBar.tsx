@@ -17,7 +17,7 @@ import { Text } from './Text';
 const SMALL_HEIGHT = 64;
 const LARGE_HEIGHT = 152;
 /** Scroll distance over which a large app bar folds into a small one. */
-export const APP_BAR_COLLAPSE = LARGE_HEIGHT - SMALL_HEIGHT;
+const APP_BAR_COLLAPSE = LARGE_HEIGHT - SMALL_HEIGHT;
 
 export interface TopAppBarProps {
   title: string;

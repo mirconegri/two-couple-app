@@ -5,8 +5,8 @@ import type { AppDatabase } from '../db';
 import { listEvents } from '../db/events';
 import type { CalendarEvent } from '../types';
 
-export const MESSAGE_CHANNEL_ID = 'messages';
-export const EVENT_CHANNEL_ID = 'events';
+const MESSAGE_CHANNEL_ID = 'messages';
+const EVENT_CHANNEL_ID = 'events';
 
 export async function configureNotificationChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;

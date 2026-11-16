@@ -59,7 +59,7 @@ interface EventDto {
   deleted_at: string | null;
 }
 
-export function mapMessageDto(dto: MessageDto): Message {
+function mapMessageDto(dto: MessageDto): Message {
   return {
     id: dto.id,
     coupleId: dto.couple_id,
@@ -76,7 +76,7 @@ export function mapMessageDto(dto: MessageDto): Message {
   };
 }
 
-export function mapEventDto(dto: EventDto): CalendarEvent {
+function mapEventDto(dto: EventDto): CalendarEvent {
   return {
     id: dto.id,
     coupleId: dto.couple_id,
@@ -114,7 +114,7 @@ interface NoteDto {
   deleted_at: string | null;
 }
 
-export function mapNoteDto(dto: NoteDto): Note {
+function mapNoteDto(dto: NoteDto): Note {
   return {
     id: dto.id,
     coupleId: dto.couple_id,

@@ -13,7 +13,7 @@ export type AppDatabase = SQLite.SQLiteDatabase;
  * exclusive transaction so a crash mid-migration rolls back cleanly rather
  * than leaving a half-applied schema.
  */
-export async function migrate(db: AppDatabase): Promise<void> {
+async function migrate(db: AppDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   const applied = row?.user_version ?? 0;
 

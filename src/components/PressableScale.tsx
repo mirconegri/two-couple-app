@@ -97,6 +97,3 @@ export const PressableScale = React.forwardRef<View, PressableScaleProps>(
     );
   },
 );
-
-/** Opacity of the Material state layer drawn over a pressed surface. */
-export const pressedStateLayer = stateLayer.pressed;

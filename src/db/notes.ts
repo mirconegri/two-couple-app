@@ -30,7 +30,7 @@ function parseChecklist(raw: string | null): NoteChecklistItem[] | null {
   }
 }
 
-export function mapNoteRow(row: NoteRow): Note {
+function mapNoteRow(row: NoteRow): Note {
   return {
     id: row.id,
     coupleId: row.couple_id,
@@ -81,7 +81,7 @@ export interface PushNotePayload {
   deletedAt: string | null;
 }
 
-export function toPushNotePayload(
+function toPushNotePayload(
   note: Note,
   deletedAt: string | null = null,
 ): PushNotePayload {

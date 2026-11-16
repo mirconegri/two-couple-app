@@ -18,7 +18,7 @@ import { useSync } from '../../../src/sync/SyncProvider';
 import { useHaptics } from '../../../src/lib/haptics';
 import { enqueueNoteDeletion } from '../../../src/db/notes';
 import { duration } from '../../../src/theme/motion';
-import { iconSize, shape, spacing } from '../../../src/theme/tokens';
+import { shape, spacing } from '../../../src/theme/tokens';
 import type { Note } from '../../../src/types';
 
 export default function NotesScreen() {

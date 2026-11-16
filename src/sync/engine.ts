@@ -44,7 +44,7 @@ const EMPTY_RESULT: SyncResult = {
   error: null,
 };
 
-export async function getSyncCursor(
+async function getSyncCursor(
   db: AppDatabase,
   key: string,
 ): Promise<string | null> {
@@ -55,7 +55,7 @@ export async function getSyncCursor(
   return row?.value ?? null;
 }
 
-export async function setSyncCursor(
+async function setSyncCursor(
   db: AppDatabase,
   key: string,
   value: string | null,
@@ -78,7 +78,7 @@ export async function setSyncCursor(
  * as 'failed' after several attempts, so a single dropped packet does not
  * paint the thread red.
  */
-export async function drainOutbox(
+async function drainOutbox(
   db: AppDatabase,
   remote: RemotePort,
 ): Promise<{ pushed: number; failures: number; error: string | null }> {
@@ -156,7 +156,7 @@ export async function drainOutbox(
  * This is the part that must work without Realtime. A Realtime event is only
  * a hint to call this function; it is never treated as the data itself.
  */
-export async function pullChanges(
+async function pullChanges(
   db: AppDatabase,
   remote: RemotePort,
   coupleId: string,

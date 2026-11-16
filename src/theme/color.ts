@@ -68,17 +68,6 @@ export function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/** Relative luminance, used to pick a legible foreground over an arbitrary color. */
-export function isDarkColor(hex: string): boolean {
-  const value = Number.parseInt(hex.slice(1), 16);
-  const r = ((value >> 16) & 0xff) / 255;
-  const g = ((value >> 8) & 0xff) / 255;
-  const b = (value & 0xff) / 255;
-  const linear = (channel: number) =>
-    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b) < 0.45;
-}
-
 export function buildColorScheme(
   material: Material3Scheme,
   scheme: Scheme,

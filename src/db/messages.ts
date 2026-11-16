@@ -19,7 +19,7 @@ interface MessageRow {
 const COLUMNS = `id, couple_id, sender_id, body, client_created_at,
   server_created_at, delivered_at, read_at, updated_at, deleted_at, sync_status, failure_reason`;
 
-export function mapMessageRow(row: MessageRow): Message {
+function mapMessageRow(row: MessageRow): Message {
   return {
     id: row.id,
     coupleId: row.couple_id,

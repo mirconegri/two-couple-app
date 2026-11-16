@@ -12,7 +12,7 @@ export interface PushRegistrationResult {
   reason?: string;
 }
 
-export const PUSH_META_KEY = 'push_token_status';
+const PUSH_META_KEY = 'push_token_status';
 
 /**
  * Register this device for remote push.

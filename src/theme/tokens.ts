@@ -26,8 +26,6 @@ export const shape = {
   full: 999,
 } as const;
 
-export type ShapeToken = keyof typeof shape;
-
 /** Material 3 shadow elevation, in dp. */
 export const elevation = {
   level0: 0,
@@ -80,7 +78,7 @@ const WEIGHT = {
 } as const satisfies Record<string, TextStyle['fontWeight']>;
 
 /** Material 3 type scale. */
-export const typeScale = {
+const typeScale = {
   displayLarge: { fontSize: 57, lineHeight: 64, fontWeight: WEIGHT.regular, letterSpacing: -0.25 },
   displayMedium: { fontSize: 45, lineHeight: 52, fontWeight: WEIGHT.regular, letterSpacing: 0 },
   displaySmall: { fontSize: 36, lineHeight: 44, fontWeight: WEIGHT.regular, letterSpacing: 0 },

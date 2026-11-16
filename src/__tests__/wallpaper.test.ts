@@ -1,5 +1,4 @@
 import {
-  DEFAULT_WALLPAPER_PREFS,
   loadWallpaperPrefs,
   saveWallpaperPrefs,
   WALLPAPER_PRESETS,
