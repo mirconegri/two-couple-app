@@ -286,13 +286,3 @@ export async function applyRemoteEvent(
     event.deletedAt,
   );
 }
-
-export async function purgeDeletedEvents(
-  db: AppDatabase,
-  olderThanIso: string,
-): Promise<void> {
-  await db.runAsync(
-    `delete from events where deleted_at is not null and deleted_at < ?`,
-    olderThanIso,
-  );
-}

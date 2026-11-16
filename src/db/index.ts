@@ -30,19 +30,6 @@ export async function migrate(db: AppDatabase): Promise<void> {
   });
 }
 
-/** Open, configure and migrate the local database. */
-export async function openAppDatabase(): Promise<AppDatabase> {
-  const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
-
-  // journal_mode cannot be changed inside a transaction, so it runs first.
-  await db.execAsync('PRAGMA journal_mode = WAL;');
-  await db.execAsync('PRAGMA foreign_keys = ON;');
-  await db.execAsync('PRAGMA busy_timeout = 5000;');
-
-  await migrate(db);
-  return db;
-}
-
 /** Called by SQLiteProvider's onInit. */
 export async function initDatabase(db: AppDatabase): Promise<void> {
   await db.execAsync('PRAGMA journal_mode = WAL;');

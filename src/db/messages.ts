@@ -64,17 +64,6 @@ export async function listMessages(
   return rows.map(mapMessageRow);
 }
 
-export async function getMessage(
-  db: AppDatabase,
-  id: string,
-): Promise<Message | null> {
-  const row = await db.getFirstAsync<MessageRow>(
-    `select ${COLUMNS} from messages where id = ?`,
-    id,
-  );
-  return row ? mapMessageRow(row) : null;
-}
-
 /**
  * Persist a locally-composed message AND its outbox entry in one exclusive
  * transaction. If the device dies mid-write, either both exist or neither does
@@ -221,27 +210,6 @@ export async function applyRemoteMessage(
     message.readAt,
     message.updatedAt,
     message.deletedAt,
-  );
-}
-
-export async function markLocalMessagesDelivered(
-  db: AppDatabase,
-  coupleId: string,
-  myUserId: string,
-  until: string = new Date().toISOString(),
-): Promise<void> {
-  const now = new Date().toISOString();
-  await db.runAsync(
-    `update messages
-        set delivered_at = coalesce(delivered_at, ?)
-      where couple_id = ?
-        and sender_id <> ?
-        and delivered_at is null
-        and client_created_at <= ?`,
-    now,
-    coupleId,
-    myUserId,
-    until,
   );
 }
 

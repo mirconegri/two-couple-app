@@ -78,7 +78,3 @@ export async function countPending(db: AppDatabase): Promise<number> {
   );
   return row?.count ?? 0;
 }
-
-export async function clearOutbox(db: AppDatabase): Promise<void> {
-  await db.runAsync('delete from outbox');
-}
