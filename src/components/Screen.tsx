@@ -50,7 +50,7 @@ export function Screen({
 
   const content = (
     <SafeAreaView
-      style={[styles.fill, { backgroundColor: applyWallpaper ? 'transparent' : colors.background }]}
+      style={[styles.fill, { backgroundColor: applyWallpaper ? 'transparent' : colors.surface }]}
       edges={edges}
     >
       {scroll ? (

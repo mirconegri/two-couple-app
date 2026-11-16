@@ -11,7 +11,7 @@ interface ListSectionProps {
 }
 
 export function ListSection({ title, footer, children, style }: ListSectionProps) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
 
   const childArray = React.Children.toArray(children).filter(Boolean);
 
@@ -20,9 +20,9 @@ export function ListSection({ title, footer, children, style }: ListSectionProps
       {title ? (
         <Text
           style={[
-            typography.footnote,
+            typography.bodySmall,
             styles.sectionTitle,
-            { color: colors.textMuted, paddingHorizontal: spacing.lg, marginBottom: spacing.xs },
+            { color: colors.onSurfaceVariant, paddingHorizontal: spacing.lg, marginBottom: spacing.xs },
           ]}
         >
           {title.toUpperCase()}
@@ -33,9 +33,9 @@ export function ListSection({ title, footer, children, style }: ListSectionProps
         style={[
           styles.container,
           {
-            backgroundColor: colors.surface,
-            borderRadius: radii.lg,
-            borderColor: colors.border,
+            backgroundColor: colors.surfaceContainerLow,
+            borderRadius: shape.lg,
+            borderColor: colors.outlineVariant,
           },
         ]}
       >
@@ -47,7 +47,7 @@ export function ListSection({ title, footer, children, style }: ListSectionProps
                 style={[
                   styles.divider,
                   {
-                    backgroundColor: colors.border,
+                    backgroundColor: colors.outlineVariant,
                     marginLeft: spacing.lg,
                   },
                 ]}
@@ -60,9 +60,9 @@ export function ListSection({ title, footer, children, style }: ListSectionProps
       {footer ? (
         <Text
           style={[
-            typography.footnote,
+            typography.bodySmall,
             styles.sectionFooter,
-            { color: colors.textMuted, paddingHorizontal: spacing.lg, marginTop: spacing.xs },
+            { color: colors.onSurfaceVariant, paddingHorizontal: spacing.lg, marginTop: spacing.xs },
           ]}
         >
           {footer}

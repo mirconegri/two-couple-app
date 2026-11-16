@@ -43,7 +43,7 @@ export default function EditEventScreen() {
     return (
       <Screen>
         <View style={{ paddingTop: spacing.xxl }}>
-          <Text style={[typography.heading, { color: colors.text }]}>
+          <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
             Event not found
           </Text>
           <Button

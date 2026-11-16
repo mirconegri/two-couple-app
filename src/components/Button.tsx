@@ -36,7 +36,7 @@ export function Button({
   fullWidth = true,
   haptics,
 }: ButtonProps) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
   const isDisabled = disabled || loading;
 
   const defaultHaptics =
@@ -44,19 +44,19 @@ export function Button({
 
   const background =
     variant === 'primary'
-      ? colors.accent
+      ? colors.primary
       : variant === 'danger'
-        ? colors.danger
+        ? colors.error
         : variant === 'secondary'
-          ? colors.surfaceMuted
+          ? colors.surfaceContainerHigh
           : 'transparent';
 
   const textColor =
     variant === 'primary' || variant === 'danger'
-      ? colors.onAccent
+      ? colors.onPrimary
       : variant === 'ghost'
-        ? colors.accent
-        : colors.text;
+        ? colors.primary
+        : colors.onSurface;
 
   return (
     <PressableScale
@@ -70,12 +70,12 @@ export function Button({
         styles.base,
         {
           backgroundColor: background,
-          borderRadius: radii.md,
+          borderRadius: shape.md,
           paddingVertical: spacing.md + 2,
           paddingHorizontal: spacing.lg,
           opacity: isDisabled ? 0.45 : 1,
           borderWidth: variant === 'secondary' ? StyleSheet.hairlineWidth : 0,
-          borderColor: colors.border,
+          borderColor: colors.outlineVariant,
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
         },
         style,
@@ -88,7 +88,7 @@ export function Button({
       ) : (
         <View style={styles.row}>
           {icon ? <View style={{ marginRight: spacing.sm }}>{icon}</View> : null}
-          <Text style={[typography.headline, { color: textColor }]}>{label}</Text>
+          <Text style={[typography.titleMedium, { color: textColor }]}>{label}</Text>
         </View>
       )}
     </PressableScale>

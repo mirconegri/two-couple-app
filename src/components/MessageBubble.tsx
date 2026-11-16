@@ -71,8 +71,8 @@ function StickerMedia({ type, value }: { type: 'image' | 'storage'; value: strin
 
   if (loading) {
     return (
-      <View style={[styles.stickerImage, styles.stickerPlaceholder, { backgroundColor: colors.surfaceMuted }]}>
-        <ActivityIndicator size="small" color={colors.textFaint} />
+      <View style={[styles.stickerImage, styles.stickerPlaceholder, { backgroundColor: colors.surfaceContainerHigh }]}>
+        <ActivityIndicator size="small" color={colors.outline} />
       </View>
     );
   }
@@ -88,14 +88,14 @@ function StickerMedia({ type, value }: { type: 'image' | 'storage'; value: strin
             : undefined
         }
         disabled={type !== 'storage'}
-        style={[styles.stickerImage, styles.stickerPlaceholder, { backgroundColor: colors.surfaceMuted }]}
+        style={[styles.stickerImage, styles.stickerPlaceholder, { backgroundColor: colors.surfaceContainerHigh }]}
       >
         <Ionicons
           name={type === 'storage' ? 'refresh-outline' : 'image-outline'}
           size={26}
-          color={colors.textFaint}
+          color={colors.outline}
         />
-        <Text style={[typography.micro, { color: colors.textFaint, marginTop: 4 }]}>Sticker</Text>
+        <Text style={[typography.labelSmall, { color: colors.outline, marginTop: 4 }]}>Sticker</Text>
       </PressableScale>
     );
   }
@@ -168,8 +168,8 @@ function ReceiptChecks({
   useEffect(() => {
     if (isRead && wasDeliveredRef.current && !reducedMotion) {
       scale.value = withSequence(
-        withSpring(1.2, spring.pop),
-        withSpring(1, spring.pop),
+        withSpring(1.2, spring.spatialFast),
+        withSpring(1, spring.spatialFast),
       );
       wasDeliveredRef.current = false;
     }
@@ -214,10 +214,10 @@ export function MessageBubble({
   senderName,
   onRetry,
 }: MessageBubbleProps) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
 
   const background = isMine ? colors.bubbleSelf : colors.bubbleOther;
-  const textColor = isMine ? colors.bubbleSelfText : colors.bubbleOtherText;
+  const textColor = isMine ? colors.onBubbleSelf : colors.onBubbleOther;
   const time = format(new Date(message.clientCreatedAt), 'HH:mm');
 
   const failed = message.syncStatus === 'failed';
@@ -237,9 +237,9 @@ export function MessageBubble({
           {showSenderName ? (
             <Text
               style={[
-                typography.micro,
+                typography.labelSmall,
                 {
-                  color: colors.textMuted,
+                  color: colors.onSurfaceVariant,
                   marginBottom: 2,
                   marginLeft: isMine ? 0 : spacing.xs,
                   marginRight: isMine ? spacing.xs : 0,
@@ -259,7 +259,7 @@ export function MessageBubble({
             )}
 
             <View style={styles.stickerMetaPill}>
-              <Text style={[typography.caption2, { color: '#FFFFFF', fontSize: 10 }]}>{time}</Text>
+              <Text style={[typography.labelSmall, { color: '#FFFFFF', fontSize: 10 }]}>{time}</Text>
               {isMine && pending ? <PendingClock /> : null}
               {isMine && failed ? (
                 <PressableScale
@@ -270,7 +270,7 @@ export function MessageBubble({
                   scaleTo={0.9}
                   style={{ marginLeft: spacing.xs }}
                 >
-                  <Ionicons name="alert-circle" size={12} color={colors.danger} />
+                  <Ionicons name="alert-circle" size={12} color={colors.error} />
                 </PressableScale>
               ) : null}
               {isMine && !pending && !failed ? (
@@ -295,9 +295,9 @@ export function MessageBubble({
         {showSenderName ? (
           <Text
             style={[
-              typography.micro,
+              typography.labelSmall,
               {
-                color: colors.textMuted,
+                color: colors.onSurfaceVariant,
                 marginBottom: 2,
                 marginLeft: isMine ? 0 : spacing.xs,
                 marginRight: isMine ? spacing.xs : 0,
@@ -314,23 +314,23 @@ export function MessageBubble({
             styles.bubble,
             {
               backgroundColor: background,
-              borderRadius: radii.xl,
+              borderRadius: shape.xl,
               paddingHorizontal: spacing.md + 2,
               paddingVertical: spacing.sm + 1,
               borderWidth: 0,
-              borderBottomRightRadius: isMine ? radii.xs : radii.xl,
-              borderBottomLeftRadius: isMine ? radii.xl : radii.xs,
+              borderBottomRightRadius: isMine ? shape.xs : shape.xl,
+              borderBottomLeftRadius: isMine ? shape.xl : shape.xs,
             },
           ]}
         >
-          <Text style={[typography.body, { color: textColor }]}>{message.body}</Text>
+          <Text style={[typography.bodyLarge, { color: textColor }]}>{message.body}</Text>
 
-          <View style={[styles.metaRow, { marginTop: spacing.xxs }]}>
+          <View style={[styles.metaRow, { marginTop: spacing.xs }]}>
             <Text
               style={[
-                typography.caption2,
+                typography.labelSmall,
                 {
-                  color: isMine ? 'rgba(255,255,255,0.7)' : colors.textFaint,
+                  color: isMine ? 'rgba(255,255,255,0.7)' : colors.outline,
                 },
               ]}
             >
@@ -348,7 +348,7 @@ export function MessageBubble({
                 scaleTo={0.9}
                 style={{ marginLeft: spacing.xs }}
               >
-                <Ionicons name="alert-circle" size={12} color={colors.danger} />
+                <Ionicons name="alert-circle" size={12} color={colors.error} />
               </PressableScale>
             ) : null}
 
@@ -366,8 +366,8 @@ export function MessageBubble({
           >
             <Text
               style={[
-                typography.micro,
-                { color: colors.danger, marginTop: 2, textAlign: 'right' },
+                typography.labelSmall,
+                { color: colors.error, marginTop: 2, textAlign: 'right' },
               ]}
             >
               Not sent · tap to retry

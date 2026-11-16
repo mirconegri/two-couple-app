@@ -12,7 +12,7 @@ import { errorMessage } from '../../src/utils/errors';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
-  const { colors, spacing, typography, radii } = useTheme();
+  const { colors, spacing, typography, shape } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,23 +33,23 @@ export default function SignInScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ paddingTop: spacing.huge, paddingBottom: spacing.xxxl }}>
+      <View style={{ paddingTop: spacing.xxxl, paddingBottom: spacing.xxxl }}>
         <View
           style={[
             styles.mark,
-            { backgroundColor: colors.accentSoft, borderRadius: radii.xl },
+            { backgroundColor: colors.primaryContainer, borderRadius: shape.xl },
           ]}
         >
-          <Ionicons name="heart-half-outline" size={30} color={colors.accent} />
+          <Ionicons name="heart-half-outline" size={30} color={colors.primary} />
         </View>
 
-        <Text style={[typography.largeTitle, { color: colors.text, marginTop: spacing.xl }]}>
+        <Text style={[typography.displaySmall, { color: colors.onSurface, marginTop: spacing.xl }]}>
           Two
         </Text>
         <Text
           style={[
-            typography.subheadline,
-            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xxxl },
+            typography.bodyMedium,
+            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xxxl },
           ]}
         >
           A private space for the two of you. Messages, plans, nothing else.
@@ -87,12 +87,12 @@ export default function SignInScreen() {
         />
 
         <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>
-          <Text style={[typography.caption, { color: colors.textMuted }]}>
+          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
             No account yet?
           </Text>
           <Link href="/(auth)/sign-up" asChild>
             <Pressable hitSlop={8} style={{ paddingVertical: spacing.sm }}>
-              <Text style={[typography.bodyStrong, { color: colors.accent }]}>
+              <Text style={[typography.titleMedium, { color: colors.primary }]}>
                 Create one
               </Text>
             </Pressable>

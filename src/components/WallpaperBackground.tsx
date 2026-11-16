@@ -77,12 +77,12 @@ export function WallpaperBackground({ prefs, children, style }: WallpaperBackgro
   const isDark = scheme === 'dark';
 
   if (prefs.id === 'default') {
-    return <View style={[styles.container, { backgroundColor: colors.background }, style]}>{children}</View>;
+    return <View style={[styles.container, { backgroundColor: colors.surface }, style]}>{children}</View>;
   }
 
   if (prefs.id === 'custom' && prefs.customUri) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }, style]}>
+      <View style={[styles.container, { backgroundColor: colors.surface }, style]}>
         <Image
           source={{ uri: prefs.customUri }}
           style={StyleSheet.absoluteFillObject}

@@ -48,7 +48,7 @@ import { duration } from '../../../src/theme/motion';
 import type { Message } from '../../../src/types';
 
 function ChatLoadingShimmer() {
-  const { colors, radii, spacing } = useTheme();
+  const { colors, shape, spacing } = useTheme();
   const opacity = useSharedValue(0.4);
   const reducedMotion = useReducedMotion();
 
@@ -67,14 +67,14 @@ function ChatLoadingShimmer() {
   }));
 
   return (
-    <View style={[styles.fill, { backgroundColor: colors.background, padding: spacing.lg, justifyContent: 'flex-end' }]}>
+    <View style={[styles.fill, { backgroundColor: colors.surface, padding: spacing.lg, justifyContent: 'flex-end' }]}>
       <Animated.View
         style={[
           {
             width: '60%',
             height: 48,
-            borderRadius: radii.xl,
-            backgroundColor: colors.surfaceMuted,
+            borderRadius: shape.xl,
+            backgroundColor: colors.surfaceContainerHigh,
             marginBottom: spacing.md,
             alignSelf: 'flex-start',
           },
@@ -86,8 +86,8 @@ function ChatLoadingShimmer() {
           {
             width: '72%',
             height: 64,
-            borderRadius: radii.xl,
-            backgroundColor: colors.surfaceMuted,
+            borderRadius: shape.xl,
+            backgroundColor: colors.surfaceContainerHigh,
             marginBottom: spacing.md,
             alignSelf: 'flex-end',
           },
@@ -99,8 +99,8 @@ function ChatLoadingShimmer() {
           {
             width: '45%',
             height: 44,
-            borderRadius: radii.xl,
-            backgroundColor: colors.surfaceMuted,
+            borderRadius: shape.xl,
+            backgroundColor: colors.surfaceContainerHigh,
             marginBottom: spacing.md,
             alignSelf: 'flex-start',
           },
@@ -114,7 +114,7 @@ function ChatLoadingShimmer() {
 export default function ChatScreen() {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
-  const { colors, spacing, typography, radii } = useTheme();
+  const { colors, spacing, typography, shape } = useTheme();
   const { userId, coupleId, members } = useAuth();
   const { notifyLocalChange, syncing, refreshUnread, setChatActive } = useSync();
   const { messages, loading, loadingMore, loadOlder, retry, hasMore, addOptimisticMessage } =
@@ -139,7 +139,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     sendBtnProgress.value = withTiming(isDraftValid ? 1 : 0, {
-      duration: duration.fast,
+      duration: duration.short3,
     });
   }, [isDraftValid, sendBtnProgress]);
 
@@ -147,7 +147,7 @@ export default function ChatScreen() {
     const bg = interpolateColor(
       sendBtnProgress.value,
       [0, 1],
-      [colors.surfaceMuted, colors.accent],
+      [colors.surfaceContainerHigh, colors.primary],
     );
     return { backgroundColor: bg };
   });
@@ -365,7 +365,7 @@ export default function ChatScreen() {
 
       const entering = isNew
         ? reducedMotion
-          ? FadeIn.duration(duration.fast)
+          ? FadeIn.duration(duration.short3)
           : FadeInDown.springify().damping(18)
         : undefined;
 
@@ -381,9 +381,9 @@ export default function ChatScreen() {
           {showDay ? (
             <Text
               style={[
-                typography.micro,
+                typography.labelSmall,
                 {
-                  color: colors.textFaint,
+                  color: colors.outline,
                   textAlign: 'center',
                   marginVertical: spacing.md,
                 },
@@ -400,7 +400,7 @@ export default function ChatScreen() {
       }
       return content;
     },
-    [colors.textFaint, members, messages, reducedMotion, retry, spacing.md, typography.micro, userId],
+    [colors.outline, members, messages, reducedMotion, retry, spacing.md, typography.labelSmall, userId],
   );
 
   if (loading) {
@@ -412,18 +412,18 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         style={[
           styles.fill,
-          { backgroundColor: wallpaperPrefs.id === 'default' ? colors.background : 'transparent' },
+          { backgroundColor: wallpaperPrefs.id === 'default' ? colors.surface : 'transparent' },
         ]}
         behavior="padding"
         keyboardVerticalOffset={0}
       >
         <View style={{ paddingTop: insets.top + spacing.xs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs }}>
           <View style={styles.headerRow}>
-            <Text style={[typography.title1, { color: colors.text }]}>
+            <Text style={[typography.headlineMedium, { color: colors.onSurface }]}>
               {partner?.displayName ? partner.displayName : 'Chat'}
             </Text>
             {syncing ? (
-              <ActivityIndicator size="small" color={colors.textFaint} />
+              <ActivityIndicator size="small" color={colors.outline} />
             ) : null}
           </View>
         </View>
@@ -455,7 +455,7 @@ export default function ChatScreen() {
               loadingMore ? (
                 <ActivityIndicator
                   style={{ marginVertical: spacing.md }}
-                  color={colors.textFaint}
+                  color={colors.outline}
                 />
               ) : null
             }
@@ -465,8 +465,8 @@ export default function ChatScreen() {
         {error ? (
           <Text
             style={[
-              typography.caption,
-              { color: colors.danger, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
+              typography.bodySmall,
+              { color: colors.error, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
             ]}
           >
             {error}
@@ -477,8 +477,8 @@ export default function ChatScreen() {
           style={[
             styles.composer,
             {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
+              backgroundColor: colors.surfaceContainerLow,
+              borderTopColor: colors.outlineVariant,
               paddingBottom: spacing.sm,
               paddingHorizontal: spacing.md,
               paddingTop: spacing.sm,
@@ -496,7 +496,7 @@ export default function ChatScreen() {
             <Ionicons
               name={showStickers ? 'keypad-outline' : 'happy-outline'}
               size={24}
-              color={showStickers ? colors.accent : colors.textFaint}
+              color={showStickers ? colors.primary : colors.outline}
             />
           </PressableScale>
 
@@ -509,16 +509,16 @@ export default function ChatScreen() {
               setShowStickers(false);
             }}
             placeholder="Message"
-            placeholderTextColor={colors.textFaint}
+            placeholderTextColor={colors.outline}
             multiline
             maxLength={4000}
             style={[
-              typography.body,
+              typography.bodyLarge,
               styles.input,
               {
-                color: colors.text,
-                backgroundColor: colors.surfaceMuted,
-                borderRadius: radii.lg,
+                color: colors.onSurface,
+                backgroundColor: colors.surfaceContainerHigh,
+                borderRadius: shape.lg,
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm + 2,
               },
@@ -535,7 +535,7 @@ export default function ChatScreen() {
             style={[
               styles.sendButton,
               {
-                borderRadius: radii.pill,
+                borderRadius: shape.full,
               },
               sendBtnBgStyle,
             ]}
@@ -543,7 +543,7 @@ export default function ChatScreen() {
             <Ionicons
               name="arrow-up"
               size={20}
-              color={draft.trim().length === 0 ? colors.textFaint : colors.onAccent}
+              color={draft.trim().length === 0 ? colors.outline : colors.onPrimary}
             />
           </PressableScale>
         </View>

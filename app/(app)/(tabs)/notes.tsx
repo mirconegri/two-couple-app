@@ -26,7 +26,7 @@ import type { Note } from '../../../src/types';
 
 export default function NotesScreen() {
   const db = useSQLiteContext();
-  const { colors, spacing, typography, radii } = useTheme();
+  const { colors, spacing, typography, shape } = useTheme();
   const { notes, loading, reload } = useNotes();
   const { notifyLocalChange } = useSync();
   const reducedMotion = useReducedMotion();
@@ -68,9 +68,9 @@ export default function NotesScreen() {
           style={[
             styles.card,
             {
-              backgroundColor: colors.surface,
-              borderColor: item.color ?? colors.border,
-              borderRadius: radii.md,
+              backgroundColor: colors.surfaceContainerLow,
+              borderColor: item.color ?? colors.outlineVariant,
+              borderRadius: shape.md,
               padding: spacing.md,
             },
           ]}
@@ -90,7 +90,7 @@ export default function NotesScreen() {
           ) : null}
 
           <Text
-            style={[typography.heading, { color: colors.text, marginBottom: spacing.xs }]}
+            style={[typography.titleMedium, { color: colors.onSurface, marginBottom: spacing.xs }]}
             numberOfLines={2}
           >
             {item.title}
@@ -98,26 +98,26 @@ export default function NotesScreen() {
 
           {item.kind === 'text' ? (
             <Text
-              style={[typography.caption, { color: colors.textMuted }]}
+              style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}
               numberOfLines={3}
             >
               {item.body || 'Empty note'}
             </Text>
           ) : (
-            <View style={{ marginTop: spacing.xxs }}>
+            <View style={{ marginTop: spacing.xs }}>
               {checklistPreview.map((check) => (
                 <View key={check.id} style={styles.checkItemRow}>
                   <Ionicons
                     name={check.checked ? 'checkbox' : 'square-outline'}
                     size={14}
-                    color={check.checked ? colors.textFaint : colors.textMuted}
+                    color={check.checked ? colors.outline : colors.onSurfaceVariant}
                     style={{ marginRight: spacing.xs }}
                   />
                   <Text
                     style={[
-                      typography.caption,
+                      typography.bodySmall,
                       {
-                        color: check.checked ? colors.textFaint : colors.textMuted,
+                        color: check.checked ? colors.outline : colors.onSurfaceVariant,
                         textDecorationLine: check.checked ? 'line-through' : 'none',
                         flex: 1,
                       },
@@ -131,8 +131,8 @@ export default function NotesScreen() {
               {remainingCount > 0 ? (
                 <Text
                   style={[
-                    typography.micro,
-                    { color: colors.textFaint, marginTop: spacing.xxs },
+                    typography.labelSmall,
+                    { color: colors.outline, marginTop: spacing.xs },
                   ]}
                 >
                   +{remainingCount} more
@@ -148,7 +148,7 @@ export default function NotesScreen() {
   return (
     <Screen scroll={false}>
       <View style={[styles.headerRow, { paddingTop: spacing.md, paddingBottom: spacing.sm }]}>
-        <Text style={[typography.largeTitle, { color: colors.text }]}>Notes</Text>
+        <Text style={[typography.displaySmall, { color: colors.onSurface }]}>Notes</Text>
         <NavBarButton
           icon="create-outline"
           onPress={() => router.push('/(app)/note/new')}
@@ -168,7 +168,7 @@ export default function NotesScreen() {
           <RefreshControl
             refreshing={loading}
             onRefresh={reload}
-            tintColor={colors.accent}
+            tintColor={colors.primary}
           />
         }
         renderItem={renderNoteCard}

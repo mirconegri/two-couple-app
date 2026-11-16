@@ -32,36 +32,36 @@ export function EmptyState({
       <Animated.View
         entering={
           reducedMotion
-            ? FadeIn.duration(duration.fast)
+            ? FadeIn.duration(duration.short3)
             : ZoomIn.springify()
-                .damping(spring.pop.damping)
-                .stiffness(spring.pop.stiffness)
+                .damping(spring.spatialFast.damping)
+                .stiffness(spring.spatialFast.stiffness)
         }
         style={{
           width: 56,
           height: 56,
           borderRadius: 28,
-          backgroundColor: colors.accentSoft,
+          backgroundColor: colors.primaryContainer,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: spacing.lg,
         }}
       >
-        <Ionicons name={icon} size={26} color={colors.accent} />
+        <Ionicons name={icon} size={26} color={colors.primary} />
       </Animated.View>
 
       <Animated.View
         entering={
           reducedMotion
-            ? FadeIn.duration(duration.fast)
-            : FadeInUp.delay(80).duration(duration.base)
+            ? FadeIn.duration(duration.short3)
+            : FadeInUp.delay(80).duration(duration.medium1)
         }
         style={{ alignItems: 'center' }}
       >
         <Text
           style={[
-            typography.heading,
-            { color: colors.text, textAlign: 'center', marginBottom: spacing.xs },
+            typography.titleMedium,
+            { color: colors.onSurface, textAlign: 'center', marginBottom: spacing.xs },
           ]}
         >
           {title}
@@ -70,9 +70,9 @@ export function EmptyState({
         {description ? (
           <Text
             style={[
-              typography.body,
+              typography.bodyLarge,
               {
-                color: colors.textMuted,
+                color: colors.onSurfaceVariant,
                 textAlign: 'center',
                 maxWidth: 300,
                 marginBottom: spacing.lg,
@@ -88,8 +88,8 @@ export function EmptyState({
         <Animated.View
           entering={
             reducedMotion
-              ? FadeIn.duration(duration.fast)
-              : FadeInUp.delay(160).duration(duration.base)
+              ? FadeIn.duration(duration.short3)
+              : FadeInUp.delay(160).duration(duration.medium1)
           }
         >
           {action}

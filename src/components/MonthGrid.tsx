@@ -40,7 +40,7 @@ function DayCell({
   dayEvents: CalendarEvent[];
   onPress: () => void;
 }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
   const scale = useSharedValue(1);
   const todayPulse = useSharedValue(1);
   const reducedMotion = useReducedMotion();
@@ -48,8 +48,8 @@ function DayCell({
   useEffect(() => {
     if (isSelected && !reducedMotion) {
       scale.value = withSequence(
-        withSpring(1.14, spring.pop),
-        withSpring(1, spring.pop),
+        withSpring(1.14, spring.spatialFast),
+        withSpring(1, spring.spatialFast),
       );
     }
   }, [isSelected, reducedMotion, scale]);
@@ -77,29 +77,29 @@ function DayCell({
       accessibilityLabel={`${cellDate.toDateString()}, ${dayEvents.length} events`}
       haptics="selection"
       scaleTo={0.92}
-      style={[styles.cell, { padding: spacing.xxs }]}
+      style={[styles.cell, { padding: spacing.xs }]}
     >
       <Animated.View
         style={[
           styles.cellInner,
           {
-            borderRadius: radii.md,
-            backgroundColor: isSelected ? colors.accent : 'transparent',
+            borderRadius: shape.md,
+            backgroundColor: isSelected ? colors.primary : 'transparent',
             borderWidth: today && !isSelected ? StyleSheet.hairlineWidth : 0,
-            borderColor: colors.accent,
+            borderColor: colors.primary,
           },
           animatedStyle,
         ]}
       >
         <Text
           style={[
-            typography.caption,
+            typography.bodySmall,
             {
               color: isSelected
-                ? colors.onAccent
+                ? colors.onPrimary
                 : inMonth
-                  ? colors.text
-                  : colors.textFaint,
+                  ? colors.onSurface
+                  : colors.outline,
               fontWeight: today ? '700' : '500',
             },
           ]}
@@ -111,13 +111,13 @@ function DayCell({
           {dayEvents.slice(0, 3).map((event, index) => (
             <Animated.View
               key={event.id}
-              entering={FadeIn.delay(index * 20).duration(duration.fast)}
+              entering={FadeIn.delay(index * 20).duration(duration.short3)}
               style={[
                 styles.dot,
                 {
                   backgroundColor: isSelected
                     ? 'rgba(255,255,255,0.85)'
-                    : event.color ?? colors.accent,
+                    : event.color ?? colors.primary,
                 },
               ]}
             />
@@ -148,7 +148,7 @@ export function MonthGrid({ anchor, selected, events, onSelectDate }: MonthGridP
       <View style={styles.weekRow}>
         {WEEKDAY_LABELS.map((label, index) => (
           <View key={`${label}-${index}`} style={styles.weekCell}>
-            <Text style={[typography.micro, { color: colors.textFaint }]}>{label}</Text>
+            <Text style={[typography.labelSmall, { color: colors.outline }]}>{label}</Text>
           </View>
         ))}
       </View>

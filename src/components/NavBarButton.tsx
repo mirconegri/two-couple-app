@@ -25,10 +25,10 @@ export function NavBarButton({
   const { colors, typography, spacing } = useTheme();
 
   const tint = destructive
-    ? colors.danger
+    ? colors.error
     : disabled
-      ? colors.textFaint
-      : colors.accent;
+      ? colors.outline
+      : colors.primary;
 
   return (
     <PressableScale
@@ -43,7 +43,7 @@ export function NavBarButton({
       {label ? (
         <Text
           style={[
-            bold ? typography.headline : typography.body,
+            bold ? typography.titleMedium : typography.bodyLarge,
             { color: tint, marginLeft: icon ? spacing.xs : 0 },
           ]}
         >

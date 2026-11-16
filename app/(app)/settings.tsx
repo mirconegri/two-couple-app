@@ -18,7 +18,8 @@ import { useSync } from '../../src/sync/SyncProvider';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useWallpaper } from '../../src/theme/WallpaperProvider';
 import { WALLPAPER_PRESETS } from '../../src/theme/wallpaper';
-import { accents, accentKeys } from '../../src/theme/preferences';
+import { seedPalette } from '../../src/theme/tokens';
+import { useSettings } from '../../src/settings/SettingsProvider';
 import {
   loadNotificationSound,
   saveNotificationSound,
@@ -33,7 +34,8 @@ import { errorMessage } from '../../src/utils/errors';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
-  const { colors, spacing, typography, scheme, prefs, updatePrefs } = useTheme();
+  const { colors, spacing, typography, scheme } = useTheme();
+  const { settings, update } = useSettings();
   const { email, userId, coupleId, members, signOut, refreshCouple } = useAuth();
   const { pendingCount, realtimeStatus, lastSyncedAt, syncing, syncNow } = useSync();
   const { prefs: wallpaperPrefs, setPreset, setCustomPhoto, setScope, resetToDefault } = useWallpaper();
@@ -179,7 +181,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* Large Title */}
-        <Text style={[typography.largeTitle, { color: colors.text, marginBottom: spacing.lg }]}>
+        <Text style={[typography.displaySmall, { color: colors.onSurface, marginBottom: spacing.lg }]}>
           Settings
         </Text>
 
@@ -189,7 +191,7 @@ export default function SettingsScreen() {
             label="Your name"
             value={me?.displayName ?? 'Not set'}
             icon="person"
-            iconBg={colors.accent}
+            iconBg={colors.primary}
             chevron
             onPress={() => router.push('/(app)/profile')}
           />
@@ -227,43 +229,41 @@ export default function SettingsScreen() {
           <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
             <SegmentedControl
               options={[
-                { value: 'auto', label: 'Auto' },
+                { value: 'system', label: 'Auto' },
                 { value: 'light', label: 'Chiaro' },
                 { value: 'dark', label: 'Scuro' },
               ]}
-              value={prefs.mode}
-              onChange={(mode) => updatePrefs({ mode })}
+              value={settings.themeMode}
+              onChange={(themeMode) => update({ themeMode })}
             />
           </View>
           <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
             <Text
               style={[
-                typography.subheadline,
-                { color: colors.textMuted, marginBottom: spacing.sm },
+                typography.bodyMedium,
+                { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
               ]}
             >
               Colore accento
             </Text>
             <View style={styles.swatchRow}>
-              {accentKeys.map((key) => {
-                const isSelected = prefs.accent === key;
-                const accentDef = accents[key];
-                const swatchBg = scheme === 'dark' ? accentDef.dark : accentDef.light;
+              {seedPalette.map((seed) => {
+                const isSelected = settings.seedColor === seed.value;
 
                 return (
                   <PressableScale
-                    key={key}
-                    onPress={() => updatePrefs({ accent: key })}
+                    key={seed.value}
+                    onPress={() => update({ seedColor: seed.value })}
                     haptics="selection"
                     scaleTo={0.92}
                     accessibilityRole="button"
-                    accessibilityLabel={accentDef.label}
+                    accessibilityLabel={seed.name}
                     accessibilityState={{ selected: isSelected }}
                     style={[
                       styles.accentSwatch,
                       {
-                        backgroundColor: swatchBg,
-                        borderColor: isSelected ? colors.text : colors.border,
+                        backgroundColor: seed.value,
+                        borderColor: isSelected ? colors.onSurface : colors.outlineVariant,
                         borderWidth: isSelected ? 2 : 1,
                       },
                     ]}
@@ -281,7 +281,7 @@ export default function SettingsScreen() {
         {/* Romantic Wallpapers & Custom Photo Section */}
         <ListSection title="Sfondo Romantico & Foto">
           <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs }}>
-            <Text style={[typography.subheadline, { color: colors.textMuted, marginBottom: spacing.sm }]}>
+            <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginBottom: spacing.sm }]}>
               Applica a
             </Text>
             <SegmentedControl
@@ -295,7 +295,7 @@ export default function SettingsScreen() {
           </View>
 
           <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-            <Text style={[typography.subheadline, { color: colors.textMuted, marginBottom: spacing.sm }]}>
+            <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginBottom: spacing.sm }]}>
               Pattern romantici
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.wallpaperScroll}>
@@ -310,7 +310,7 @@ export default function SettingsScreen() {
                       styles.wallpaperCard,
                       {
                         backgroundColor: cardBg,
-                        borderColor: isSelected ? colors.accent : colors.border,
+                        borderColor: isSelected ? colors.primary : colors.outlineVariant,
                         borderWidth: isSelected ? 2 : 1,
                       },
                     ]}
@@ -318,9 +318,9 @@ export default function SettingsScreen() {
                     <Ionicons name={p.icon as any} size={24} color={p.accentTone} />
                     <Text
                       style={[
-                        typography.caption2,
+                        typography.labelSmall,
                         {
-                          color: colors.text,
+                          color: colors.onSurface,
                           fontWeight: isSelected ? '700' : '500',
                           marginTop: 6,
                           textAlign: 'center',
@@ -338,21 +338,21 @@ export default function SettingsScreen() {
 
           {wallpaperPrefs.id === 'custom' && wallpaperPrefs.customUri ? (
             <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md, alignItems: 'center' }}>
-              <View style={[styles.customPhotoPreview, { borderColor: colors.accent }]}>
+              <View style={[styles.customPhotoPreview, { borderColor: colors.primary }]}>
                 <Image
                   source={{ uri: wallpaperPrefs.customUri }}
                   style={StyleSheet.absoluteFillObject}
                   resizeMode="cover"
                 />
               </View>
-              <Text style={[typography.caption, { color: colors.textMuted, marginVertical: spacing.xs }]}>
+              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginVertical: spacing.xs }]}>
                 Foto personalizzata attiva
               </Text>
               <PressableScale
                 onPress={() => void resetToDefault()}
-                style={[styles.smallBtn, { backgroundColor: colors.surfaceMuted }]}
+                style={[styles.smallBtn, { backgroundColor: colors.surfaceContainerHigh }]}
               >
-                <Text style={[typography.caption, { color: colors.danger }]}>Rimuovi foto</Text>
+                <Text style={[typography.bodySmall, { color: colors.error }]}>Rimuovi foto</Text>
               </PressableScale>
             </View>
           ) : null}
@@ -371,7 +371,7 @@ export default function SettingsScreen() {
           <ListRow
             label="Status"
             icon="sync"
-            iconBg={colors.accent}
+            iconBg={colors.primary}
             rightAction={
               <StatusPill
                 label={
@@ -415,7 +415,7 @@ export default function SettingsScreen() {
             disabled={busy}
           />
           <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-            <Text style={[typography.subheadline, { color: colors.textMuted, marginBottom: spacing.sm }]}>
+            <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginBottom: spacing.sm }]}>
               Suono notifiche
             </Text>
             <View style={styles.soundList}>
@@ -428,26 +428,26 @@ export default function SettingsScreen() {
                     style={[
                       styles.soundRow,
                       {
-                        backgroundColor: isSelected ? colors.surfaceMuted : 'transparent',
-                        borderColor: isSelected ? colors.accent : colors.border,
+                        backgroundColor: isSelected ? colors.surfaceContainerHigh : 'transparent',
+                        borderColor: isSelected ? colors.primary : colors.outlineVariant,
                       },
                     ]}
                   >
                     <Ionicons
                       name={snd.icon as any}
                       size={20}
-                      color={isSelected ? colors.accent : colors.textFaint}
+                      color={isSelected ? colors.primary : colors.outline}
                     />
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={[typography.body, { color: colors.text, fontWeight: isSelected ? '600' : '400' }]}>
+                      <Text style={[typography.bodyLarge, { color: colors.onSurface, fontWeight: isSelected ? '600' : '400' }]}>
                         {snd.label}
                       </Text>
-                      <Text style={[typography.caption2, { color: colors.textMuted }]}>
+                      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>
                         {snd.description}
                       </Text>
                     </View>
                     {isSelected ? (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -482,15 +482,15 @@ export default function SettingsScreen() {
         </ListSection>
 
         {error ? (
-          <Text style={[typography.footnote, { color: colors.danger, textAlign: 'center', marginTop: spacing.sm }]}>
+          <Text style={[typography.bodySmall, { color: colors.error, textAlign: 'center', marginTop: spacing.sm }]}>
             {error}
           </Text>
         ) : null}
 
         <Text
           style={[
-            typography.footnote,
-            { color: colors.textFaint, textAlign: 'center', marginTop: spacing.md },
+            typography.bodySmall,
+            { color: colors.outline, textAlign: 'center', marginTop: spacing.md },
           ]}
         >
           Two • Private space for two

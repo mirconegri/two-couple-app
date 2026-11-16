@@ -55,8 +55,8 @@ export default function ProfileScreen() {
 
         <Text
           style={[
-            typography.largeTitle,
-            { color: colors.text, marginTop: spacing.xs, marginBottom: spacing.sm },
+            typography.displaySmall,
+            { color: colors.onSurface, marginTop: spacing.xs, marginBottom: spacing.sm },
           ]}
         >
           Your Name
@@ -64,8 +64,8 @@ export default function ProfileScreen() {
 
         <Text
           style={[
-            typography.subheadline,
-            { color: colors.textMuted, marginBottom: spacing.xl },
+            typography.bodyMedium,
+            { color: colors.onSurfaceVariant, marginBottom: spacing.xl },
           ]}
         >
           Choose what your partner sees in chat, shared events, and notes.

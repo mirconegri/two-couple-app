@@ -30,7 +30,7 @@ export function ListRow({
   destructive = false,
   disabled = false,
 }: ListRowProps) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
 
   const isInteractive = Boolean(onPress) && !disabled;
 
@@ -41,8 +41,8 @@ export function ListRow({
           style={[
             styles.iconWrap,
             {
-              backgroundColor: iconBg ?? colors.accent,
-              borderRadius: radii.sm,
+              backgroundColor: iconBg ?? colors.primary,
+              borderRadius: shape.sm,
               marginRight: spacing.md,
             },
           ]}
@@ -53,10 +53,10 @@ export function ListRow({
 
       <Text
         style={[
-          typography.body,
+          typography.bodyLarge,
           styles.label,
           {
-            color: destructive ? colors.danger : colors.text,
+            color: destructive ? colors.error : colors.onSurface,
             flex: 1,
           },
         ]}
@@ -68,10 +68,10 @@ export function ListRow({
       {value !== undefined && value !== null ? (
         <Text
           style={[
-            typography.body,
+            typography.bodyLarge,
             styles.value,
             {
-              color: colors.textMuted,
+              color: colors.onSurfaceVariant,
               marginRight: chevron ? spacing.xs : 0,
             },
           ]}
@@ -88,7 +88,7 @@ export function ListRow({
       ) : null}
 
       {chevron ? (
-        <Ionicons name="chevron-forward" size={17} color={colors.textFaint} />
+        <Ionicons name="chevron-forward" size={17} color={colors.outline} />
       ) : null}
     </View>
   );

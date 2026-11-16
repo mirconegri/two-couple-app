@@ -10,15 +10,15 @@ interface TextFieldProps extends TextInputProps {
 }
 
 export function TextField({ label, hint, error, style, ...rest }: TextFieldProps) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
 
   return (
     <View style={{ marginBottom: spacing.lg }}>
       {label ? (
         <Text
           style={[
-            typography.caption,
-            { color: colors.textMuted, marginBottom: spacing.xs },
+            typography.bodySmall,
+            { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
           ]}
         >
           {label}
@@ -26,15 +26,15 @@ export function TextField({ label, hint, error, style, ...rest }: TextFieldProps
       ) : null}
 
       <TextInput
-        placeholderTextColor={colors.textFaint}
+        placeholderTextColor={colors.outline}
         style={[
-          typography.body,
+          typography.bodyLarge,
           styles.input,
           {
-            backgroundColor: colors.surface,
-            color: colors.text,
-            borderColor: error ? colors.danger : colors.border,
-            borderRadius: radii.md,
+            backgroundColor: colors.surfaceContainerLow,
+            color: colors.onSurface,
+            borderColor: error ? colors.error : colors.outlineVariant,
+            borderRadius: shape.md,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.md,
           },
@@ -45,13 +45,13 @@ export function TextField({ label, hint, error, style, ...rest }: TextFieldProps
 
       {error ? (
         <Text
-          style={[typography.caption, { color: colors.danger, marginTop: spacing.xs }]}
+          style={[typography.bodySmall, { color: colors.error, marginTop: spacing.xs }]}
         >
           {error}
         </Text>
       ) : hint ? (
         <Text
-          style={[typography.caption, { color: colors.textFaint, marginTop: spacing.xs }]}
+          style={[typography.bodySmall, { color: colors.outline, marginTop: spacing.xs }]}
         >
           {hint}
         </Text>

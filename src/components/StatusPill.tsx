@@ -6,25 +6,25 @@ import { useTheme } from '../theme/ThemeProvider';
 type Tone = 'neutral' | 'pending' | 'success' | 'danger';
 
 export function StatusPill({ label, tone = 'neutral' }: { label: string; tone?: Tone }) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
 
   const background =
     tone === 'success'
-      ? colors.successSoft
+      ? colors.secondaryContainer
       : tone === 'danger'
-        ? colors.dangerSoft
+        ? colors.errorContainer
         : tone === 'pending'
-          ? colors.warningSoft
-          : colors.surfaceMuted;
+          ? colors.tertiaryContainer
+          : colors.surfaceContainerHigh;
 
   const foreground =
     tone === 'success'
-      ? colors.success
+      ? colors.secondary
       : tone === 'danger'
-        ? colors.danger
+        ? colors.error
         : tone === 'pending'
-          ? colors.warning
-          : colors.textMuted;
+          ? colors.tertiary
+          : colors.onSurfaceVariant;
 
   return (
     <View
@@ -32,13 +32,13 @@ export function StatusPill({ label, tone = 'neutral' }: { label: string; tone?: 
         styles.pill,
         {
           backgroundColor: background,
-          borderRadius: radii.pill,
+          borderRadius: shape.full,
           paddingHorizontal: spacing.sm,
           paddingVertical: 2,
         },
       ]}
     >
-      <Text style={[typography.micro, { color: foreground }]}>{label}</Text>
+      <Text style={[typography.labelSmall, { color: foreground }]}>{label}</Text>
     </View>
   );
 }

@@ -15,7 +15,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         animation: 'fade',
-        sceneStyle: { backgroundColor: colors.background },
+        sceneStyle: { backgroundColor: colors.surface },
         tabBarButton: ({ ref, ...props }) => (
           <PressableScale
             {...props}
@@ -23,14 +23,14 @@ export default function TabsLayout() {
             haptics="selection"
           />
         ),
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textFaint,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.outline,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: colors.surfaceContainerLow,
+          borderTopColor: colors.outlineVariant,
           borderTopWidth: 0.5,
         },
-        tabBarLabelStyle: { ...typography.micro },
+        tabBarLabelStyle: { ...typography.labelSmall },
       }}
     >
       <Tabs.Screen
@@ -48,7 +48,7 @@ export default function TabsLayout() {
           title: 'Chat',
           tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: colors.danger,
+            backgroundColor: colors.error,
             color: '#FFFFFF',
             fontSize: 10,
             fontWeight: '700',

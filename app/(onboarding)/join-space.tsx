@@ -51,11 +51,11 @@ export default function JoinSpaceScreen() {
           />
         </View>
 
-        <Text style={[typography.largeTitle, { color: colors.text }]}>Join the space</Text>
+        <Text style={[typography.displaySmall, { color: colors.onSurface }]}>Join the space</Text>
         <Text
           style={[
-            typography.subheadline,
-            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xxl },
+            typography.bodyMedium,
+            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xxl },
           ]}
         >
           Paste the invitation code your partner sent you.
@@ -83,8 +83,8 @@ export default function JoinSpaceScreen() {
 
         <Text
           style={[
-            typography.caption,
-            { color: colors.textFaint, marginTop: spacing.lg },
+            typography.bodySmall,
+            { color: colors.outline, marginTop: spacing.lg },
           ]}
         >
           Codes expire after 48 hours and can only be used once. A space holds exactly

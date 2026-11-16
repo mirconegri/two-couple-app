@@ -18,7 +18,7 @@ import { duration } from '../../../src/theme/motion';
 import type { CalendarEvent } from '../../../src/types';
 
 export default function CalendarScreen() {
-  const { colors, spacing, typography, radii } = useTheme();
+  const { colors, spacing, typography, shape } = useTheme();
   const { events } = useEvents();
   const reducedMotion = useReducedMotion();
 
@@ -46,7 +46,7 @@ export default function CalendarScreen() {
   };
 
   const monthTransition = useMemo(() => {
-    if (reducedMotion) return FadeIn.duration(duration.fast);
+    if (reducedMotion) return FadeIn.duration(duration.short3);
     const startX = direction > 0 ? 24 : -24;
     return new Keyframe({
       0: {
@@ -57,14 +57,14 @@ export default function CalendarScreen() {
         transform: [{ translateX: 0 }],
         opacity: 1,
       },
-    }).duration(duration.base);
+    }).duration(duration.medium1);
   }, [direction, reducedMotion]);
 
   return (
     <Screen scroll>
       <View style={{ paddingTop: spacing.lg }}>
         <View style={styles.headerRow}>
-          <Text style={[typography.title, { color: colors.text }]}>
+          <Text style={[typography.headlineMedium, { color: colors.onSurface }]}>
             {format(anchor, 'MMMM yyyy')}
           </Text>
 
@@ -77,9 +77,9 @@ export default function CalendarScreen() {
               hitSlop={8}
               accessibilityLabel="Previous month"
               haptics="selection"
-              style={[styles.navButton, { backgroundColor: colors.surfaceMuted, borderRadius: radii.sm }]}
+              style={[styles.navButton, { backgroundColor: colors.surfaceContainerHigh, borderRadius: shape.sm }]}
             >
-              <Ionicons name="chevron-back" size={18} color={colors.text} />
+              <Ionicons name="chevron-back" size={18} color={colors.onSurface} />
             </PressableScale>
 
             <PressableScale
@@ -90,9 +90,9 @@ export default function CalendarScreen() {
               hitSlop={8}
               accessibilityLabel="Next month"
               haptics="selection"
-              style={[styles.navButton, { backgroundColor: colors.surfaceMuted, borderRadius: radii.sm }]}
+              style={[styles.navButton, { backgroundColor: colors.surfaceContainerHigh, borderRadius: shape.sm }]}
             >
-              <Ionicons name="chevron-forward" size={18} color={colors.text} />
+              <Ionicons name="chevron-forward" size={18} color={colors.onSurface} />
             </PressableScale>
           </View>
         </View>
@@ -103,7 +103,7 @@ export default function CalendarScreen() {
           haptics="selection"
           style={{ marginBottom: spacing.md, alignSelf: 'flex-start' }}
         >
-          <Text style={[typography.caption, { color: colors.accent }]}>Today</Text>
+          <Text style={[typography.bodySmall, { color: colors.primary }]}>Today</Text>
         </PressableScale>
 
         <Animated.View key={anchor.toISOString()} entering={monthTransition}>
@@ -123,7 +123,7 @@ export default function CalendarScreen() {
 
         <View style={{ marginTop: spacing.xl }}>
           <View style={styles.sectionRow}>
-            <Text style={[typography.heading, { color: colors.text }]}>
+            <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
               {isSameDay(selected, new Date()) ? 'Today' : format(selected, 'd MMMM')}
             </Text>
 

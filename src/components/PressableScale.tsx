@@ -7,21 +7,19 @@ import {
   type View,
   type ViewStyle,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
-import { duration, spring } from '../theme/motion';
+import { useHaptics, type SimpleHaptic } from '../lib/haptics';
+import { useTheme } from '../theme/ThemeProvider';
+import { pressSpring } from '../theme/motion';
+import { stateLayer } from '../theme/tokens';
 
 export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
-  scaleTo?: number;
-  haptics?: 'light' | 'selection' | null;
   style?: StyleProp<ViewStyle>;
+  /** Corner radius of the Material ripple; matches the container it fills. */
+  rippleRadius?: number;
+  scaleTo?: number;
+  haptics?: SimpleHaptic | null;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -31,84 +29,60 @@ export const PressableScale = React.forwardRef<View, PressableScaleProps>(
     {
       children,
       style,
-      scaleTo = 0.96,
+      rippleRadius,
+      scaleTo = 1,
       haptics = null,
       disabled = false,
       onPress,
       onPressIn,
       onPressOut,
-      accessibilityRole,
-      accessibilityLabel,
-      accessibilityState,
-      hitSlop,
-      onLongPress,
       ...rest
     },
     ref,
   ) {
+    const { colors, reducedMotion } = useTheme();
+    const feedback = useHaptics();
     const scale = useSharedValue(1);
-    const opacity = useSharedValue(1);
-    const reducedMotion = useReducedMotion();
 
     const handlePress = useCallback(
-      (e: GestureResponderEvent) => {
-        if (!disabled && haptics) {
-          if (haptics === 'light') {
-            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          } else if (haptics === 'selection') {
-            void Haptics.selectionAsync();
-          }
-        }
-        onPress?.(e);
+      (event: GestureResponderEvent) => {
+        if (haptics) feedback[haptics]();
+        onPress?.(event);
       },
-      [disabled, haptics, onPress],
+      [feedback, haptics, onPress],
     );
 
     const handlePressIn = useCallback(
-      (e: GestureResponderEvent) => {
-        if (reducedMotion) {
-          opacity.value = withTiming(0.9, { duration: duration.fast });
-        } else {
-          scale.value = withSpring(scaleTo, spring.press);
-          opacity.value = withTiming(0.9, { duration: 100 });
-        }
-
-        onPressIn?.(e);
+      (event: GestureResponderEvent) => {
+        if (!reducedMotion && scaleTo !== 1) scale.value = withSpring(scaleTo, pressSpring);
+        onPressIn?.(event);
       },
-      [onPressIn, opacity, reducedMotion, scale, scaleTo],
+      [onPressIn, reducedMotion, scale, scaleTo],
     );
 
     const handlePressOut = useCallback(
-      (e: GestureResponderEvent) => {
-        if (reducedMotion) {
-          opacity.value = withTiming(1, { duration: duration.fast });
-        } else {
-          scale.value = withSpring(1, spring.press);
-          opacity.value = withTiming(1, { duration: duration.fast });
-        }
-
-        onPressOut?.(e);
+      (event: GestureResponderEvent) => {
+        if (!reducedMotion && scaleTo !== 1) scale.value = withSpring(1, pressSpring);
+        onPressOut?.(event);
       },
-      [onPressOut, opacity, reducedMotion, scale],
+      [onPressOut, reducedMotion, scale, scaleTo],
     );
 
-    const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scale.value }],
-      opacity: opacity.value,
-    }));
+    const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
     return (
       <AnimatedPressable
         ref={ref}
         disabled={disabled}
-        accessibilityRole={accessibilityRole}
-        accessibilityLabel={accessibilityLabel}
-        accessibilityState={accessibilityState}
-        hitSlop={hitSlop}
         onPress={handlePress}
-        onLongPress={onLongPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
+        android_ripple={
+          disabled
+            ? undefined
+            : { color: colors.onSurface, foreground: true, radius: rippleRadius }
+        }
+        android_disableSound
         style={[style, animatedStyle]}
         {...rest}
       >
@@ -117,3 +91,6 @@ export const PressableScale = React.forwardRef<View, PressableScaleProps>(
     );
   },
 );
+
+/** Opacity of the Material state layer drawn over a pressed surface. */
+export const pressedStateLayer = stateLayer.pressed;

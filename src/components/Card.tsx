@@ -13,14 +13,14 @@ export function Card({
   style?: ViewStyle;
   onPress?: () => void;
 }) {
-  const { colors, radii, spacing } = useTheme();
+  const { colors, shape, spacing } = useTheme();
 
   const cardStyle = [
     styles.card,
     {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: radii.xl,
+      backgroundColor: colors.surfaceContainerLow,
+      borderColor: colors.outlineVariant,
+      borderRadius: shape.xl,
       padding: spacing.lg,
     },
     style,

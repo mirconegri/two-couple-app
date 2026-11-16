@@ -54,7 +54,7 @@ export default function AppLayout() {
     presentation: 'modal' as const,
     sheetAllowedDetents: [0.9, 1.0] as [number, number],
     sheetGrabberVisible: true,
-    contentStyle: { backgroundColor: colors.background },
+    contentStyle: { backgroundColor: colors.surface },
     animation: reduceMotion ? ('fade' as const) : undefined,
     animationDuration: reduceMotion ? 150 : 250,
   };
@@ -63,7 +63,7 @@ export default function AppLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: colors.surface },
         animation: reduceMotion ? 'fade' : 'slide_from_right',
         animationDuration: reduceMotion ? 150 : 250,
         gestureEnabled: true,

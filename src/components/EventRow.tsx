@@ -14,7 +14,7 @@ interface EventRowProps {
 }
 
 export function EventRow({ event, onPress, creatorLabel }: EventRowProps) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
 
   return (
     <PressableScale
@@ -26,7 +26,7 @@ export function EventRow({ event, onPress, creatorLabel }: EventRowProps) {
       style={[
         styles.row,
         {
-          borderRadius: radii.md,
+          borderRadius: shape.md,
           paddingVertical: spacing.sm + 2,
           paddingHorizontal: spacing.sm,
         },
@@ -36,20 +36,20 @@ export function EventRow({ event, onPress, creatorLabel }: EventRowProps) {
         style={[
           styles.stripe,
           {
-            backgroundColor: event.color ?? colors.accent,
-            borderRadius: radii.pill,
+            backgroundColor: event.color ?? colors.primary,
+            borderRadius: shape.full,
           },
         ]}
       />
 
       <View style={{ flex: 1, marginLeft: spacing.md }}>
-        <Text numberOfLines={1} style={[typography.bodyStrong, { color: colors.text }]}>
+        <Text numberOfLines={1} style={[typography.titleMedium, { color: colors.onSurface }]}>
           {event.title}
         </Text>
 
         <Text
           numberOfLines={1}
-          style={[typography.caption, { color: colors.textMuted, marginTop: 1 }]}
+          style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginTop: 1 }]}
         >
           {formatEventRange(event)}
           {event.location ? ` · ${event.location}` : ''}
@@ -57,9 +57,9 @@ export function EventRow({ event, onPress, creatorLabel }: EventRowProps) {
       </View>
 
       {event.visibility === 'private' ? (
-        <Ionicons name="lock-closed-outline" size={14} color={colors.textFaint} />
+        <Ionicons name="lock-closed-outline" size={14} color={colors.outline} />
       ) : creatorLabel ? (
-        <Text style={[typography.micro, { color: colors.textFaint }]}>{creatorLabel}</Text>
+        <Text style={[typography.labelSmall, { color: colors.outline }]}>{creatorLabel}</Text>
       ) : null}
     </PressableScale>
   );

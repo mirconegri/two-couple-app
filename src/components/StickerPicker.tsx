@@ -63,7 +63,7 @@ function PickerStickerImage({ sticker }: { sticker: Sticker }) {
 
 export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
   const { coupleId } = useAuth();
-  const { colors, spacing, radii, typography } = useTheme();
+  const { colors, spacing, shape, typography } = useTheme();
 
   const [activeTab, setActiveTab] = useState<StickerPack['id']>('love');
   const [recents, setRecents] = useState<Sticker[]>([]);
@@ -163,14 +163,14 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
       style={[
         styles.container,
         {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: colors.surfaceContainerLow,
+          borderTopColor: colors.outlineVariant,
         },
       ]}
     >
       {/* Header bar */}
       <View style={styles.header}>
-        <Text style={[typography.subheadline, { color: colors.text, fontWeight: '600' }]}>
+        <Text style={[typography.bodyMedium, { color: colors.onSurface, fontWeight: '600' }]}>
           Stickers
         </Text>
         <PressableScale
@@ -179,7 +179,7 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
           accessibilityRole="button"
           accessibilityLabel="Chiudi pannello sticker"
         >
-          <Ionicons name="close-circle" size={24} color={colors.textFaint} />
+          <Ionicons name="close-circle" size={24} color={colors.outline} />
         </PressableScale>
       </View>
 
@@ -197,8 +197,8 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
               style={[
                 styles.tabButton,
                 {
-                  backgroundColor: isSelected ? colors.surfaceMuted : 'transparent',
-                  borderBottomColor: isSelected ? colors.accent : 'transparent',
+                  backgroundColor: isSelected ? colors.surfaceContainerHigh : 'transparent',
+                  borderBottomColor: isSelected ? colors.primary : 'transparent',
                   borderBottomWidth: isSelected ? 2 : 0,
                 },
               ]}
@@ -206,7 +206,7 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
               <Ionicons
                 name={pack.icon as any}
                 size={20}
-                color={isSelected ? colors.accent : colors.textFaint}
+                color={isSelected ? colors.primary : colors.outline}
               />
             </TouchableOpacity>
           );
@@ -225,9 +225,9 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
                   : 'images-outline'
             }
             size={40}
-            color={colors.textFaint}
+            color={colors.outline}
           />
-          <Text style={[typography.subheadline, { color: colors.textMuted, marginTop: spacing.sm }]}>
+          <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: spacing.sm }]}>
             {activeTab === 'recents'
               ? 'Nessun recente. Gli ultimi 20 sticker usati appariranno qui!'
               : activeTab === 'favorites'
@@ -240,15 +240,15 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
               disabled={uploading}
               style={[
                 styles.addButton,
-                { backgroundColor: colors.accent, borderRadius: radii.pill, marginTop: spacing.md },
+                { backgroundColor: colors.primary, borderRadius: shape.full, marginTop: spacing.md },
               ]}
             >
               {uploading ? (
-                <ActivityIndicator size="small" color={colors.onAccent} />
+                <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
-                <Ionicons name="add" size={18} color={colors.onAccent} />
+                <Ionicons name="add" size={18} color={colors.onPrimary} />
               )}
-              <Text style={[typography.body, { color: colors.onAccent, fontWeight: '600', marginLeft: 6 }]}>
+              <Text style={[typography.bodyLarge, { color: colors.onPrimary, fontWeight: '600', marginLeft: 6 }]}>
                 {uploading ? 'Caricamento...' : 'Aggiungi da galleria / WhatsApp'}
               </Text>
             </PressableScale>
@@ -271,8 +271,8 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
                   style={[
                     styles.stickerTouch,
                     {
-                      backgroundColor: colors.surfaceMuted,
-                      borderRadius: radii.lg,
+                      backgroundColor: colors.surfaceContainerHigh,
+                      borderRadius: shape.lg,
                     },
                   ]}
                   activeOpacity={0.7}
@@ -293,7 +293,7 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
                   <Ionicons
                     name={fav ? 'star' : 'star-outline'}
                     size={14}
-                    color={fav ? '#FFCC00' : colors.textFaint}
+                    color={fav ? '#FFCC00' : colors.outline}
                   />
                 </TouchableOpacity>
               </View>
@@ -306,15 +306,15 @@ export function StickerPicker({ onSelect, onClose }: StickerPickerProps) {
                 disabled={uploading}
                 style={[
                   styles.addButton,
-                  { backgroundColor: colors.accent, borderRadius: radii.pill, marginVertical: spacing.md },
+                  { backgroundColor: colors.primary, borderRadius: shape.full, marginVertical: spacing.md },
                 ]}
               >
                 {uploading ? (
-                  <ActivityIndicator size="small" color={colors.onAccent} />
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
-                  <Ionicons name="add" size={18} color={colors.onAccent} />
+                  <Ionicons name="add" size={18} color={colors.onPrimary} />
                 )}
-                <Text style={[typography.body, { color: colors.onAccent, fontWeight: '600', marginLeft: 6 }]}>
+                <Text style={[typography.bodyLarge, { color: colors.onPrimary, fontWeight: '600', marginLeft: 6 }]}>
                   {uploading ? 'Caricamento...' : 'Aggiungi altro da galleria'}
                 </Text>
               </PressableScale>

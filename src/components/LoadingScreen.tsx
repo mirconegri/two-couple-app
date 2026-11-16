@@ -7,12 +7,12 @@ export function LoadingScreen({ label = 'Loading' }: { label?: string }) {
   const { colors, spacing, typography } = useTheme();
 
   return (
-    <View style={[styles.wrap, { backgroundColor: colors.background }]}>
-      <ActivityIndicator color={colors.accent} />
+    <View style={[styles.wrap, { backgroundColor: colors.surface }]}>
+      <ActivityIndicator color={colors.primary} />
       <Text
         style={[
-          typography.caption,
-          { color: colors.textMuted, marginTop: spacing.md },
+          typography.bodySmall,
+          { color: colors.onSurfaceVariant, marginTop: spacing.md },
         ]}
       >
         {label}

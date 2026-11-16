@@ -108,13 +108,13 @@ export default function CreateSpaceScreen() {
     return (
       <Screen scroll>
         <View style={{ paddingTop: spacing.md, paddingBottom: spacing.xxxl }}>
-          <Text style={[typography.largeTitle, { color: colors.text, marginTop: spacing.lg }]}>
+          <Text style={[typography.displaySmall, { color: colors.onSurface, marginTop: spacing.lg }]}>
             Invite your partner
           </Text>
           <Text
             style={[
-              typography.subheadline,
-              { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xl },
+              typography.bodyMedium,
+              { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xl },
             ]}
           >
             Share this invitation code with your partner so they can join your space.
@@ -124,9 +124,9 @@ export default function CreateSpaceScreen() {
             <Text
               selectable
               style={[
-                typography.bodyStrong,
+                typography.titleMedium,
                 {
-                  color: colors.text,
+                  color: colors.onSurface,
                   fontFamily: undefined,
                   letterSpacing: 0.6,
                   textAlign: 'center',
@@ -139,8 +139,8 @@ export default function CreateSpaceScreen() {
 
           <Text
             style={[
-              typography.caption,
-              { color: colors.textMuted, marginTop: spacing.md, textAlign: 'center' },
+              typography.bodySmall,
+              { color: colors.onSurfaceVariant, marginTop: spacing.md, textAlign: 'center' },
             ]}
           >
             Expires in 48 hours
@@ -148,9 +148,9 @@ export default function CreateSpaceScreen() {
 
           <Text
             style={[
-              typography.caption,
+              typography.bodySmall,
               {
-                color: colors.textFaint,
+                color: colors.outline,
                 marginTop: spacing.xs,
                 marginBottom: spacing.lg,
                 textAlign: 'center',
@@ -176,8 +176,8 @@ export default function CreateSpaceScreen() {
           {error ? (
             <Text
               style={[
-                typography.caption,
-                { color: colors.danger, marginTop: spacing.md },
+                typography.bodySmall,
+                { color: colors.error, marginTop: spacing.md },
               ]}
             >
               {error}
@@ -206,11 +206,11 @@ export default function CreateSpaceScreen() {
           />
         </View>
 
-        <Text style={[typography.largeTitle, { color: colors.text }]}>Create the space</Text>
+        <Text style={[typography.displaySmall, { color: colors.onSurface }]}>Create the space</Text>
         <Text
           style={[
-            typography.subheadline,
-            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xxl },
+            typography.bodyMedium,
+            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xxl },
           ]}
         >
           Give it a name if you like. Only the two of you will ever see it.
@@ -238,8 +238,8 @@ export default function CreateSpaceScreen() {
         {coupleId ? (
           <Text
             style={[
-              typography.caption,
-              { color: colors.textMuted, marginTop: spacing.md },
+              typography.bodySmall,
+              { color: colors.onSurfaceVariant, marginTop: spacing.md },
             ]}
           >
             Space created. Generate a code to invite your partner.

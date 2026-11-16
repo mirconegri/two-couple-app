@@ -77,10 +77,10 @@ export default function EventDetailScreen() {
     return (
       <Screen>
         <View style={{ paddingTop: spacing.xxl }}>
-          <Text style={[typography.headline, { color: colors.text }]}>
+          <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
             This event is not on this device
           </Text>
-          <Text style={[typography.body, { color: colors.textMuted, marginTop: spacing.sm }]}>
+          <Text style={[typography.bodyLarge, { color: colors.onSurfaceVariant, marginTop: spacing.sm }]}>
             It may have been deleted, or it was created while you were offline.
           </Text>
           <Button
@@ -137,14 +137,14 @@ export default function EventDetailScreen() {
         </View>
 
         {/* Title & Date */}
-        <Text style={[typography.largeTitle, { color: colors.text, marginTop: spacing.sm }]}>
+        <Text style={[typography.displaySmall, { color: colors.onSurface, marginTop: spacing.sm }]}>
           {event.title}
         </Text>
 
         <Text
           style={[
-            typography.subheadline,
-            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xl },
+            typography.bodyMedium,
+            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xl },
           ]}
         >
           {formatEventRange(event)}
@@ -156,13 +156,13 @@ export default function EventDetailScreen() {
             label="Visibility"
             value={event.visibility === 'shared' ? 'Both of us' : 'Only me'}
             icon="eye"
-            iconBg={colors.accent}
+            iconBg={colors.primary}
           />
           <ListRow
             label="Color"
             value={event.color ? undefined : 'Default (follows theme)'}
             icon="color-palette"
-            iconBg={event.color ?? colors.accent}
+            iconBg={event.color ?? colors.primary}
             rightAction={
               event.color ? (
                 <View
@@ -207,7 +207,7 @@ export default function EventDetailScreen() {
         {event.description ? (
           <ListSection title="Notes">
             <View style={{ padding: spacing.lg }}>
-              <Text style={[typography.body, { color: colors.text }]}>{event.description}</Text>
+              <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>{event.description}</Text>
             </View>
           </ListSection>
         ) : null}
@@ -223,7 +223,7 @@ export default function EventDetailScreen() {
         ) : null}
 
         {error ? (
-          <Text style={[typography.footnote, { color: colors.danger, marginTop: spacing.md, textAlign: 'center' }]}>
+          <Text style={[typography.bodySmall, { color: colors.error, marginTop: spacing.md, textAlign: 'center' }]}>
             {error}
           </Text>
         ) : null}

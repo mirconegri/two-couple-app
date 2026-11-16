@@ -1,203 +1,179 @@
-export const palette = {
-  // Apple System Colors (Light & Dark)
-  systemBlue: '#007AFF',
-  systemBlueDark: '#0A84FF',
-  systemGreen: '#34C759',
-  systemGreenDark: '#30D158',
-  systemIndigo: '#5856D6',
-  systemIndigoDark: '#5E5CE6',
-  systemOrange: '#FF9500',
-  systemOrangeDark: '#FF9F0A',
-  systemPink: '#FF2D55',
-  systemPinkDark: '#FF375F',
-  systemPurple: '#AF52DE',
-  systemPurpleDark: '#BF5AF2',
-  systemRed: '#FF3B30',
-  systemRedDark: '#FF453A',
-  systemTeal: '#5AC8FA',
-  systemTealDark: '#64D2FF',
-  systemYellow: '#FFCC00',
-  systemYellowDark: '#FFD60A',
+import type { TextStyle } from 'react-native';
 
-  // Apple System Grays (Light)
-  systemGray: '#8E8E93',
-  systemGray2: '#AEAEB2',
-  systemGray3: '#C7C7CC',
-  systemGray4: '#D1D1D6',
-  systemGray5: '#E5E5EA',
-  systemGray6: '#F2F2F7',
-
-  // Apple System Grays (Dark)
-  systemDarkGray: '#8E8E93',
-  systemDarkGray2: '#636366',
-  systemDarkGray3: '#48484A',
-  systemDarkGray4: '#3A3A3C',
-  systemDarkGray5: '#2C2C2E',
-  systemDarkGray6: '#1C1C1E',
-
-  // Neutral
-  white: '#FFFFFF',
-  black: '#000000',
-
-  // Semantics
-  danger: '#FF3B30',
-  dangerSoft: '#FFE5E5',
-  warning: '#FF9500',
-  warningSoft: '#FFF3E0',
-  success: '#34C759',
-  successSoft: '#E8F5E9',
-
-  // Pastel Note Colors
-  noteYellow: '#FFF4CC',
-  noteGreen: '#D7F5DD',
-  noteBlue: '#D8ECFF',
-  notePink: '#FFE0E6',
-  notePurple: '#EAE2FD',
-  noteGray: '#EBEBF0',
-} as const;
-
+/** Material 3 spacing scale, 4dp grid. */
 export const spacing = {
-  xxs: 2,
+  none: 0,
   xs: 4,
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
-  huge: 48,
+  xl: 24,
+  xxl: 32,
+  xxxl: 48,
 } as const;
 
-export const radii = {
-  xs: 6,
+/** Material 3 Expressive corner radius scale. */
+export const shape = {
+  none: 0,
+  xs: 4,
   sm: 8,
-  md: 10,
-  lg: 12,
-  xl: 16,
-  xxl: 22,
-  pill: 999,
+  md: 12,
+  lg: 16,
+  lgIncreased: 20,
+  xl: 28,
+  xlIncreased: 32,
+  xxl: 48,
+  full: 999,
 } as const;
 
-export const notePastels: readonly string[] = [
-  palette.noteYellow,
-  palette.noteGreen,
-  palette.noteBlue,
-  palette.notePink,
-  palette.notePurple,
-  palette.noteGray,
-];
+export type ShapeToken = keyof typeof shape;
 
-export const eventPalette: readonly string[] = [
-  palette.systemRed,
-  palette.systemOrange,
-  palette.systemYellow,
-  palette.systemGreen,
-  palette.systemBlue,
-  palette.systemIndigo,
-  palette.systemPurple,
-  palette.systemPink,
-];
-
-export const typography = {
-  // Apple Typography Scale
-  largeTitle: { fontSize: 34, lineHeight: 41, fontWeight: '700' as const, letterSpacing: 0.37 },
-  title1: { fontSize: 28, lineHeight: 34, fontWeight: '700' as const, letterSpacing: 0.36 },
-  title2: { fontSize: 22, lineHeight: 28, fontWeight: '700' as const, letterSpacing: 0.35 },
-  title3: { fontSize: 20, lineHeight: 25, fontWeight: '600' as const, letterSpacing: 0.38 },
-  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const, letterSpacing: -0.41 },
-  body: { fontSize: 17, lineHeight: 22, fontWeight: '400' as const, letterSpacing: -0.41 },
-  callout: { fontSize: 16, lineHeight: 21, fontWeight: '400' as const, letterSpacing: -0.32 },
-  subheadline: { fontSize: 15, lineHeight: 20, fontWeight: '400' as const, letterSpacing: -0.24 },
-  footnote: { fontSize: 13, lineHeight: 18, fontWeight: '400' as const, letterSpacing: -0.08 },
-  caption1: { fontSize: 12, lineHeight: 16, fontWeight: '400' as const, letterSpacing: 0 },
-  caption2: { fontSize: 11, lineHeight: 13, fontWeight: '400' as const, letterSpacing: 0.07 },
-
-  // Compatibility aliases
-  display: { fontSize: 34, lineHeight: 41, fontWeight: '700' as const, letterSpacing: 0.37 },
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '700' as const, letterSpacing: 0.36 },
-  heading: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const, letterSpacing: -0.41 },
-  bodyStrong: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const, letterSpacing: -0.41 },
-  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' as const, letterSpacing: -0.08 },
-  micro: { fontSize: 11, lineHeight: 13, fontWeight: '600' as const, letterSpacing: 0.07 },
+/** Material 3 shadow elevation, in dp. */
+export const elevation = {
+  level0: 0,
+  level1: 1,
+  level2: 3,
+  level3: 6,
+  level4: 8,
+  level5: 12,
 } as const;
 
-export interface ThemeColors {
-  background: string;
-  surface: string;
-  surfaceMuted: string;
-  border: string;
-  borderStrong: string;
-  text: string;
-  textMuted: string;
-  textFaint: string;
-  accent: string;
-  accentSoft: string;
-  onAccent: string;
-  bubbleSelf: string;
-  bubbleSelfText: string;
-  bubbleOther: string;
-  bubbleOtherText: string;
-  danger: string;
-  dangerSoft: string;
-  warning: string;
-  warningSoft: string;
-  success: string;
-  successSoft: string;
-  overlay: string;
-  groupedBackground: string;
-  separator: string;
+/** Material 3 state layer opacities. */
+export const stateLayer = {
+  hover: 0.08,
+  focus: 0.1,
+  pressed: 0.1,
+  dragged: 0.16,
+  disabledContainer: 0.1,
+  disabledContent: 0.38,
+} as const;
+
+/** Minimum touch target enforced by Material 3. */
+export const MIN_TOUCH_TARGET = 48;
+
+/** Material 3 button heights, in dp. */
+export const buttonHeight = {
+  small: 40,
+  medium: 56,
+} as const;
+
+export const iconSize = {
+  sm: 18,
+  md: 24,
+  lg: 32,
+} as const;
+
+/** Corner radii for the three chat bubble styles offered in settings. */
+export const bubbleShapes = {
+  expressive: { self: shape.xl, other: shape.xl, tail: shape.xs },
+  rounded: { self: shape.lg, other: shape.lg, tail: shape.xs },
+  square: { self: shape.xs, other: shape.xs, tail: shape.none },
+} as const;
+
+export type BubbleShapeKey = keyof typeof bubbleShapes;
+
+const WEIGHT = {
+  regular: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
+} as const satisfies Record<string, TextStyle['fontWeight']>;
+
+/** Material 3 type scale. */
+export const typeScale = {
+  displayLarge: { fontSize: 57, lineHeight: 64, fontWeight: WEIGHT.regular, letterSpacing: -0.25 },
+  displayMedium: { fontSize: 45, lineHeight: 52, fontWeight: WEIGHT.regular, letterSpacing: 0 },
+  displaySmall: { fontSize: 36, lineHeight: 44, fontWeight: WEIGHT.regular, letterSpacing: 0 },
+  headlineLarge: { fontSize: 32, lineHeight: 40, fontWeight: WEIGHT.regular, letterSpacing: 0 },
+  headlineMedium: { fontSize: 28, lineHeight: 36, fontWeight: WEIGHT.regular, letterSpacing: 0 },
+  headlineSmall: { fontSize: 24, lineHeight: 32, fontWeight: WEIGHT.regular, letterSpacing: 0 },
+  titleLarge: { fontSize: 22, lineHeight: 28, fontWeight: WEIGHT.regular, letterSpacing: 0 },
+  titleMedium: { fontSize: 16, lineHeight: 24, fontWeight: WEIGHT.medium, letterSpacing: 0.15 },
+  titleSmall: { fontSize: 14, lineHeight: 20, fontWeight: WEIGHT.medium, letterSpacing: 0.1 },
+  bodyLarge: { fontSize: 16, lineHeight: 24, fontWeight: WEIGHT.regular, letterSpacing: 0.5 },
+  bodyMedium: { fontSize: 14, lineHeight: 20, fontWeight: WEIGHT.regular, letterSpacing: 0.25 },
+  bodySmall: { fontSize: 12, lineHeight: 16, fontWeight: WEIGHT.regular, letterSpacing: 0.4 },
+  labelLarge: { fontSize: 14, lineHeight: 20, fontWeight: WEIGHT.medium, letterSpacing: 0.1 },
+  labelMedium: { fontSize: 12, lineHeight: 16, fontWeight: WEIGHT.medium, letterSpacing: 0.5 },
+  labelSmall: { fontSize: 11, lineHeight: 16, fontWeight: WEIGHT.medium, letterSpacing: 0.5 },
+} as const;
+
+export type TypeRoleName = keyof typeof typeScale;
+
+const emphasizedWeights: Record<TypeRoleName, TextStyle['fontWeight']> = {
+  displayLarge: WEIGHT.medium,
+  displayMedium: WEIGHT.medium,
+  displaySmall: WEIGHT.medium,
+  headlineLarge: WEIGHT.medium,
+  headlineMedium: WEIGHT.medium,
+  headlineSmall: WEIGHT.medium,
+  titleLarge: WEIGHT.medium,
+  titleMedium: WEIGHT.bold,
+  titleSmall: WEIGHT.bold,
+  bodyLarge: WEIGHT.medium,
+  bodyMedium: WEIGHT.medium,
+  bodySmall: WEIGHT.medium,
+  labelLarge: WEIGHT.bold,
+  labelMedium: WEIGHT.bold,
+  labelSmall: WEIGHT.bold,
+};
+
+/** Type styles scaled by the user preference; system font scaling still applies on top. */
+export function buildTypography(scale: number): Record<TypeRoleName, TextStyle> {
+  const result = {} as Record<TypeRoleName, TextStyle>;
+  for (const name of Object.keys(typeScale) as TypeRoleName[]) {
+    const role = typeScale[name];
+    result[name] = {
+      fontSize: Math.round(role.fontSize * scale),
+      lineHeight: Math.round(role.lineHeight * scale),
+      fontWeight: role.fontWeight,
+      letterSpacing: role.letterSpacing,
+    };
+  }
+  return result;
 }
 
-export const lightColors: ThemeColors = {
-  background: palette.systemGray6,        // #F2F2F7 (Apple Grouped Background)
-  surface: palette.white,                 // #FFFFFF (Apple Grouped Card)
-  surfaceMuted: palette.systemGray5,      // #E5E5EA
-  border: '#C6C6C8',                      // Apple standard table separator
-  borderStrong: palette.systemGray3,      // #C7C7CC
-  text: palette.black,                    // Primary Label
-  textMuted: '#6C6C70',                   // Secondary Label
-  textFaint: palette.systemGray,          // Tertiary Label
-  accent: palette.systemBlue,             // Apple System Blue #007AFF
-  accentSoft: 'rgba(0, 122, 255, 0.12)',
-  onAccent: palette.white,
-  bubbleSelf: palette.systemBlue,         // iMessage Blue #007AFF
-  bubbleSelfText: palette.white,
-  bubbleOther: '#E9E9EB',                 // iMessage gray
-  bubbleOtherText: palette.black,
-  danger: palette.systemRed,
-  dangerSoft: 'rgba(255, 59, 48, 0.12)',
-  warning: palette.systemOrange,
-  warningSoft: 'rgba(255, 149, 0, 0.12)',
-  success: palette.systemGreen,
-  successSoft: 'rgba(52, 199, 89, 0.12)',
-  overlay: 'rgba(0, 0, 0, 0.4)',
-  groupedBackground: palette.systemGray6,
-  separator: '#C6C6C8',
-};
+/** Heavier variant of a type role, used where a screen needs expressive emphasis. */
+export function emphasized(name: TypeRoleName, role: TextStyle): TextStyle {
+  return { ...role, fontWeight: emphasizedWeights[name] };
+}
 
-export const darkColors: ThemeColors = {
-  background: palette.black,              // #000000 (Apple Dark Grouped Background)
-  surface: palette.systemDarkGray6,       // #1C1C1E (Apple Dark Grouped Card)
-  surfaceMuted: palette.systemDarkGray5,  // #2C2C2E
-  border: '#38383A',                      // Apple dark separator
-  borderStrong: palette.systemDarkGray3,  // #48484A
-  text: palette.white,                    // Primary Label
-  textMuted: palette.systemGray,          // Secondary Label
-  textFaint: palette.systemDarkGray2,     // Tertiary Label
-  accent: palette.systemBlueDark,         // Apple Dark System Blue #0A84FF
-  accentSoft: 'rgba(10, 132, 255, 0.18)',
-  onAccent: palette.white,
-  bubbleSelf: palette.systemBlueDark,     // iMessage Dark Blue #0A84FF
-  bubbleSelfText: palette.white,
-  bubbleOther: '#262628',                 // iMessage dark gray
-  bubbleOtherText: palette.white,
-  danger: palette.systemRedDark,
-  dangerSoft: 'rgba(255, 69, 58, 0.18)',
-  warning: palette.systemOrangeDark,
-  warningSoft: 'rgba(255, 159, 10, 0.18)',
-  success: palette.systemGreenDark,
-  successSoft: 'rgba(48, 209, 88, 0.18)',
-  overlay: 'rgba(0, 0, 0, 0.65)',
-  groupedBackground: palette.black,
-  separator: '#38383A',
-};
+/** Curated seed colors for the theme picker, spread across the Material 3 hue families. */
+export const seedPalette = [
+  { name: 'Indigo', value: '#4F5B92' },
+  { name: 'Blue', value: '#3D6B99' },
+  { name: 'Teal', value: '#2E6B62' },
+  { name: 'Green', value: '#3F6B3A' },
+  { name: 'Lime', value: '#5C6B2E' },
+  { name: 'Amber', value: '#7A5B1E' },
+  { name: 'Orange', value: '#8A4F2A' },
+  { name: 'Red', value: '#8F3B3B' },
+  { name: 'Rose', value: '#8E3F5C' },
+  { name: 'Purple', value: '#6C4A8F' },
+  { name: 'Slate', value: '#4A5568' },
+  { name: 'Sand', value: '#6B5D4F' },
+] as const;
+
+export const DEFAULT_SEED_COLOR = '#4F5B92';
+
+/** Event accent colors. Stored on the row, so these are content values, not theme roles. */
+export const eventColors = [
+  '#B3261E',
+  '#8B5000',
+  '#7A5900',
+  '#3F6832',
+  '#00696D',
+  '#0061A4',
+  '#4F5B92',
+  '#7D5260',
+] as const;
+
+/** Note backgrounds. Values kept from earlier releases so saved notes keep their color. */
+export const noteColors = [
+  '#FFF4CC',
+  '#D7F5DD',
+  '#D8ECFF',
+  '#FFE0E6',
+  '#EAE2FD',
+  '#EBEBF0',
+] as const;

@@ -55,11 +55,11 @@ export default function SignUpScreen() {
           />
         </View>
 
-        <Text style={[typography.largeTitle, { color: colors.text }]}>Create an account</Text>
+        <Text style={[typography.displaySmall, { color: colors.onSurface }]}>Create an account</Text>
         <Text
           style={[
-            typography.subheadline,
-            { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.xxl },
+            typography.bodyMedium,
+            { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.xxl },
           ]}
         >
           This account is one half of the space. Your partner creates their own.

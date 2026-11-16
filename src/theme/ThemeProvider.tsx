@@ -1,150 +1,78 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import { useColorScheme } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SplashScreen from 'expo-splash-screen';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, useColorScheme } from 'react-native';
+import { isDynamicThemeSupported, useMaterial3Theme } from '@pchmn/expo-material3-theme';
+import type { TextStyle } from 'react-native';
 
-import {
-  darkColors,
-  lightColors,
-  palette,
-  radii,
-  spacing,
-  typography,
-  type ThemeColors,
-} from './tokens';
-import {
-  accents,
-  DEFAULT_PREFS,
-  PREFS_STORAGE_KEY,
-  type AccentKey,
-  type ThemeMode,
-  type ThemePrefs,
-} from './preferences';
+import { useSettings } from '../settings/SettingsProvider';
+import { buildColorScheme, type ColorScheme, type Scheme } from './color';
+import { elevation, shape, spacing, stateLayer, buildTypography, type TypeRoleName } from './tokens';
 
 export interface Theme {
-  colors: ThemeColors;
+  colors: ColorScheme;
+  scheme: Scheme;
+  typography: Record<TypeRoleName, TextStyle>;
   spacing: typeof spacing;
-  radii: typeof radii;
-  typography: typeof typography;
-  scheme: 'light' | 'dark';
-  prefs: ThemePrefs;
-  updatePrefs: (p: Partial<ThemePrefs>) => void;
+  shape: typeof shape;
+  elevation: typeof elevation;
+  stateLayer: typeof stateLayer;
+  reducedMotion: boolean;
+  /** True when the palette really comes from the wallpaper, not from the seed. */
+  dynamicColorActive: boolean;
 }
 
 const ThemeContext = createContext<Theme | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [prefs, setPrefs] = useState<ThemePrefs>(DEFAULT_PREFS);
-  const [isReady, setIsReady] = useState(false);
+  const { settings } = useSettings();
   const systemScheme = useColorScheme();
+  const [systemReducedMotion, setSystemReducedMotion] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-
-    // Safety timeout: ensure splash screen hides if storage hangs or is blocked
-    const safetyTimer = setTimeout(() => {
-      console.warn(
-        '[ThemeProvider] Theme preferences load timed out after 3000ms, hiding splash screen.',
-      );
-      void SplashScreen.hideAsync().catch(() => {});
-    }, 3000);
-
-    AsyncStorage.getItem(PREFS_STORAGE_KEY)
-      .then((raw) => {
-        if (!isMounted) return;
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw) as Partial<ThemePrefs>;
-            const mode: ThemeMode =
-              parsed.mode === 'auto' || parsed.mode === 'light' || parsed.mode === 'dark'
-                ? parsed.mode
-                : DEFAULT_PREFS.mode;
-            const accent: AccentKey =
-              typeof parsed.accent === 'string' && parsed.accent in accents
-                ? parsed.accent
-                : DEFAULT_PREFS.accent;
-            setPrefs({ mode, accent });
-          } catch (err) {
-            console.warn('[ThemeProvider] Failed to parse stored theme preferences:', err);
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn('[ThemeProvider] Failed to load theme preferences from storage:', err);
-      })
-      .finally(() => {
-        clearTimeout(safetyTimer);
-        if (isMounted) {
-          setIsReady(true);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-      clearTimeout(safetyTimer);
-    };
+    void AccessibilityInfo.isReduceMotionEnabled().then(setSystemReducedMotion);
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setSystemReducedMotion,
+    );
+    return () => subscription.remove();
   }, []);
 
-  // Hide the native splash screen only AFTER the resolved theme state has been committed
-  useEffect(() => {
-    if (isReady) {
-      void SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [isReady]);
+  const useDynamic = settings.dynamicColor && isDynamicThemeSupported;
+  const themeOptions = useMemo(
+    () =>
+      useDynamic
+        ? { fallbackSourceColor: settings.seedColor }
+        : { sourceColor: settings.seedColor },
+    [useDynamic, settings.seedColor],
+  );
+  const { theme: materialTheme } = useMaterial3Theme(themeOptions);
 
-  const updatePrefs = useCallback((partial: Partial<ThemePrefs>) => {
-    setPrefs((prev) => {
-      const next: ThemePrefs = {
-        mode: partial.mode ?? prev.mode,
-        accent: partial.accent ?? prev.accent,
-      };
-      AsyncStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(next)).catch((err) => {
-        console.error('[ThemeProvider] Failed to persist theme preferences:', err);
-      });
-      return next;
-    });
-  }, []);
-
-  const scheme: 'light' | 'dark' =
-    prefs.mode === 'auto'
+  const scheme: Scheme =
+    settings.themeMode === 'system'
       ? systemScheme === 'dark'
         ? 'dark'
         : 'light'
-      : prefs.mode;
+      : settings.themeMode;
 
-  const colors = useMemo<ThemeColors>(() => {
-    const base = scheme === 'dark' ? darkColors : lightColors;
-    const accentDef = accents[prefs.accent] ?? accents.blue;
-    const accentColor = scheme === 'dark' ? accentDef.dark : accentDef.light;
-    const accentSoftColor = scheme === 'dark' ? accentDef.darkSoft : accentDef.lightSoft;
+  const colors = useMemo(
+    () => buildColorScheme(materialTheme[scheme], scheme, settings.amoledBlack),
+    [materialTheme, scheme, settings.amoledBlack],
+  );
 
-    return {
-      ...base,
-      accent: accentColor,
-      accentSoft: accentSoftColor,
-      bubbleSelf: accentColor,
-      bubbleSelfText: palette.white,
-    };
-  }, [scheme, prefs.accent]);
+  const typography = useMemo(() => buildTypography(settings.textScale), [settings.textScale]);
 
   const value = useMemo<Theme>(
     () => ({
       colors,
-      spacing,
-      radii,
-      typography,
       scheme,
-      prefs,
-      updatePrefs,
+      typography,
+      spacing,
+      shape,
+      elevation,
+      stateLayer,
+      reducedMotion: systemReducedMotion || !settings.motion,
+      dynamicColorActive: useDynamic,
     }),
-    [colors, scheme, prefs, updatePrefs],
+    [colors, scheme, typography, systemReducedMotion, settings.motion, useDynamic],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

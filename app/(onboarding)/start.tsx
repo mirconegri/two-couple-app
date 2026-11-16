@@ -11,7 +11,7 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 
 export default function OnboardingStart() {
   const { coupleId } = useAuth();
-  const { colors, spacing, typography, radii } = useTheme();
+  const { colors, spacing, typography, shape } = useTheme();
 
   if (coupleId) {
     return <Redirect href="/(app)/(tabs)" />;
@@ -20,13 +20,13 @@ export default function OnboardingStart() {
   return (
     <Screen scroll>
       <View style={{ paddingTop: spacing.xxl, paddingBottom: spacing.xxxl }}>
-        <Text style={[typography.largeTitle, { color: colors.text }]}>
+        <Text style={[typography.displaySmall, { color: colors.onSurface }]}>
           Let&apos;s set up your space
         </Text>
         <Text
           style={[
-            typography.body,
-            { color: colors.textMuted, marginTop: spacing.sm, marginBottom: spacing.xxl },
+            typography.bodyLarge,
+            { color: colors.onSurfaceVariant, marginTop: spacing.sm, marginBottom: spacing.xxl },
           ]}
         >
           One of you creates the space and shares an invitation. The other joins with it.
@@ -38,19 +38,19 @@ export default function OnboardingStart() {
             <View
               style={[
                 styles.iconWrap,
-                { backgroundColor: colors.accentSoft, borderRadius: radii.md },
+                { backgroundColor: colors.primaryContainer, borderRadius: shape.md },
               ]}
             >
-              <Ionicons name="add-circle-outline" size={22} color={colors.accent} />
+              <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
             </View>
             <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={[typography.headline, { color: colors.text }]}>
+              <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
                 Create the space
               </Text>
               <Text
                 style={[
-                  typography.subheadline,
-                  { color: colors.textMuted, marginTop: 2 },
+                  typography.bodyMedium,
+                  { color: colors.onSurfaceVariant, marginTop: 2 },
                 ]}
               >
                 You go first and generate an invitation code.
@@ -70,19 +70,19 @@ export default function OnboardingStart() {
             <View
               style={[
                 styles.iconWrap,
-                { backgroundColor: colors.surfaceMuted, borderRadius: radii.md },
+                { backgroundColor: colors.surfaceContainerHigh, borderRadius: shape.md },
               ]}
             >
-              <Ionicons name="key-outline" size={22} color={colors.textMuted} />
+              <Ionicons name="key-outline" size={22} color={colors.onSurfaceVariant} />
             </View>
             <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={[typography.headline, { color: colors.text }]}>
+              <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
                 Join with a code
               </Text>
               <Text
                 style={[
-                  typography.subheadline,
-                  { color: colors.textMuted, marginTop: 2 },
+                  typography.bodyMedium,
+                  { color: colors.onSurfaceVariant, marginTop: 2 },
                 ]}
               >
                 Your partner already created the space and sent you a code.

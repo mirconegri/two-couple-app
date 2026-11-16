@@ -25,7 +25,7 @@ import { PressableScale } from './PressableScale';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useTheme } from '../theme/ThemeProvider';
-import { eventPalette } from '../theme/tokens';
+import { eventColors } from '../theme/tokens';
 import { enqueueEvent } from '../db/events';
 import { scheduleEventReminders } from '../notifications/reminders';
 import { newId } from '../lib/id';
@@ -59,7 +59,7 @@ function timeStringToDate(timeStr: string, baseDate: Date): Date {
 
 export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
   const db = useSQLiteContext();
-  const { colors, spacing, typography, radii, scheme } = useTheme();
+  const { colors, spacing, typography, shape, scheme } = useTheme();
   const { coupleId, userId } = useAuth();
   const { notifyLocalChange } = useSync();
 
@@ -243,7 +243,7 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
       <View style={{ paddingTop: spacing.lg }}>
         <View style={styles.headerRow}>
           <NavBarButton label="Cancel" onPress={() => router.back()} />
-          <Text style={[typography.headline, { color: colors.text }]}>
+          <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
             {initialEvent ? 'Edit event' : 'New event'}
           </Text>
           <NavBarButton
@@ -266,8 +266,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
         <View style={{ marginBottom: spacing.lg }}>
           <Text
             style={[
-              typography.caption,
-              { color: colors.textMuted, marginBottom: spacing.xs },
+              typography.bodySmall,
+              { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
             ]}
           >
             Date
@@ -283,18 +283,18 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
             style={[
               styles.pickerRow,
               {
-                backgroundColor: colors.surface,
-                borderColor: showDatePicker ? colors.accent : colors.border,
-                borderRadius: radii.md,
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: showDatePicker ? colors.primary : colors.outlineVariant,
+                borderRadius: shape.md,
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.md,
               },
             ]}
           >
-            <Text style={[typography.body, { color: colors.text, flex: 1 }]}>
+            <Text style={[typography.bodyLarge, { color: colors.onSurface, flex: 1 }]}>
               {format(currentDate, 'EEEE, d MMMM yyyy')}
             </Text>
-            <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+            <Ionicons name="calendar-outline" size={20} color={colors.onSurfaceVariant} />
           </Pressable>
 
           {showDatePicker ? (
@@ -311,7 +311,7 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
         </View>
 
         <View style={[styles.switchRow, { marginBottom: spacing.lg }]}>
-          <Text style={[typography.body, { color: colors.text }]}>All day</Text>
+          <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>All day</Text>
           <Switch value={allDay} onValueChange={setAllDay} />
         </View>
 
@@ -320,8 +320,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
             <View style={{ flex: 1 }}>
               <Text
                 style={[
-                  typography.caption,
-                  { color: colors.textMuted, marginBottom: spacing.xs },
+                  typography.bodySmall,
+                  { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
                 ]}
               >
                 Start
@@ -337,18 +337,18 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
                 style={[
                   styles.pickerRow,
                   {
-                    backgroundColor: colors.surface,
-                    borderColor: showStartTimePicker ? colors.accent : colors.border,
-                    borderRadius: radii.md,
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: showStartTimePicker ? colors.primary : colors.outlineVariant,
+                    borderRadius: shape.md,
                     paddingHorizontal: spacing.md,
                     paddingVertical: spacing.md,
                   },
                 ]}
               >
-                <Text style={[typography.body, { color: colors.text, flex: 1 }]}>
+                <Text style={[typography.bodyLarge, { color: colors.onSurface, flex: 1 }]}>
                   {startTime}
                 </Text>
-                <Ionicons name="time-outline" size={18} color={colors.textMuted} />
+                <Ionicons name="time-outline" size={18} color={colors.onSurfaceVariant} />
               </Pressable>
 
               {showStartTimePicker ? (
@@ -372,8 +372,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
             <View style={{ flex: 1 }}>
               <Text
                 style={[
-                  typography.caption,
-                  { color: colors.textMuted, marginBottom: spacing.xs },
+                  typography.bodySmall,
+                  { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
                 ]}
               >
                 End
@@ -389,18 +389,18 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
                 style={[
                   styles.pickerRow,
                   {
-                    backgroundColor: colors.surface,
-                    borderColor: showEndTimePicker ? colors.accent : colors.border,
-                    borderRadius: radii.md,
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: showEndTimePicker ? colors.primary : colors.outlineVariant,
+                    borderRadius: shape.md,
                     paddingHorizontal: spacing.md,
                     paddingVertical: spacing.md,
                   },
                 ]}
               >
-                <Text style={[typography.body, { color: colors.text, flex: 1 }]}>
+                <Text style={[typography.bodyLarge, { color: colors.onSurface, flex: 1 }]}>
                   {endTime}
                 </Text>
-                <Ionicons name="time-outline" size={18} color={colors.textMuted} />
+                <Ionicons name="time-outline" size={18} color={colors.onSurfaceVariant} />
               </Pressable>
 
               {showEndTimePicker ? (
@@ -442,15 +442,15 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
 
         <Text
           style={[
-            typography.caption,
-            { color: colors.textMuted, marginBottom: spacing.xs },
+            typography.bodySmall,
+            { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
           ]}
         >
           Color
         </Text>
 
         <View style={[styles.swatchRow, { marginBottom: spacing.lg }]}>
-          {[null, ...eventPalette].map((swatch) => {
+          {[null, ...eventColors].map((swatch) => {
             const isSelected = selectedColor === swatch;
             return (
               <PressableScale
@@ -464,14 +464,14 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
                 style={[
                   styles.swatch,
                   {
-                    backgroundColor: swatch ?? colors.surfaceMuted,
-                    borderColor: isSelected ? colors.text : colors.border,
+                    backgroundColor: swatch ?? colors.surfaceContainerHigh,
+                    borderColor: isSelected ? colors.onSurface : colors.outlineVariant,
                     borderWidth: isSelected ? 2 : 1,
                   },
                 ]}
               >
                 {!swatch ? (
-                  <Ionicons name="ban-outline" size={16} color={colors.textMuted} />
+                  <Ionicons name="ban-outline" size={16} color={colors.onSurfaceVariant} />
                 ) : isSelected ? (
                   <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                 ) : null}
@@ -482,8 +482,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
 
         <Text
           style={[
-            typography.caption,
-            { color: colors.textMuted, marginBottom: spacing.xs },
+            typography.bodySmall,
+            { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
           ]}
         >
           Who can see it
@@ -501,8 +501,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
 
         <Text
           style={[
-            typography.caption,
-            { color: colors.textMuted, marginBottom: spacing.sm },
+            typography.bodySmall,
+            { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
           ]}
         >
           Reminder
@@ -523,8 +523,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
                 style={[
                   styles.pill,
                   {
-                    backgroundColor: active ? colors.accent : colors.surfaceMuted,
-                    borderRadius: radii.pill,
+                    backgroundColor: active ? colors.primary : colors.surfaceContainerHigh,
+                    borderRadius: shape.full,
                     paddingHorizontal: spacing.md,
                     paddingVertical: spacing.sm,
                   },
@@ -532,8 +532,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
               >
                 <Text
                   style={[
-                    typography.caption,
-                    { color: active ? colors.onAccent : colors.textMuted },
+                    typography.bodySmall,
+                    { color: active ? colors.onPrimary : colors.onSurfaceVariant },
                   ]}
                 >
                   {option.label}
@@ -548,8 +548,8 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
         {error ? (
           <Text
             style={[
-              typography.caption,
-              { color: colors.danger, marginTop: spacing.md },
+              typography.bodySmall,
+              { color: colors.error, marginTop: spacing.md },
             ]}
           >
             {error}

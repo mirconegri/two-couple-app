@@ -31,7 +31,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useTheme } from '../theme/ThemeProvider';
 import { enqueueNote, enqueueNoteDeletion } from '../db/notes';
-import { notePastels, palette } from '../theme/tokens';
+import { noteColors } from '../theme/tokens';
 import { newId } from '../lib/id';
 import { errorMessage } from '../utils/errors';
 import { spring } from '../theme/motion';
@@ -56,8 +56,8 @@ function CheckItemCheckbox({
   const handlePress = () => {
     if (!reducedMotion) {
       scale.value = withSequence(
-        withSpring(1.15, spring.pop),
-        withSpring(1, spring.pop),
+        withSpring(1.15, spring.spatialFast),
+        withSpring(1, spring.spatialFast),
       );
     }
     void Haptics.selectionAsync();
@@ -83,7 +83,7 @@ function CheckItemCheckbox({
 
 export function NoteEditor({ initialNote }: NoteEditorProps) {
   const db = useSQLiteContext();
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
   const { coupleId, userId } = useAuth();
   const { notifyLocalChange } = useSync();
 
@@ -248,7 +248,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
       <View style={{ paddingTop: spacing.lg }}>
         <View style={styles.headerRow}>
           <NavBarButton label="Cancel" onPress={handleBack} />
-          <Text style={[typography.headline, { color: colors.text }]}>
+          <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
             {initialNote ? 'Edit note' : 'New note'}
           </Text>
           <NavBarButton
@@ -264,7 +264,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
           <View
             style={[
               styles.colorBar,
-              { backgroundColor: selectedColor, borderRadius: radii.sm },
+              { backgroundColor: selectedColor, borderRadius: shape.sm },
             ]}
           />
         ) : null}
@@ -274,12 +274,12 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
           value={title}
           onChangeText={setTitle}
           placeholder="Title"
-          placeholderTextColor={colors.textFaint}
+          placeholderTextColor={colors.outline}
           maxLength={200}
           style={[
-            typography.largeTitle,
+            typography.displaySmall,
             styles.titleInput,
-            { color: colors.text, borderBottomColor: colors.border },
+            { color: colors.onSurface, borderBottomColor: colors.outlineVariant },
           ]}
         />
 
@@ -300,12 +300,12 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
             value={body}
             onChangeText={setBody}
             placeholder="Write something…"
-            placeholderTextColor={colors.textFaint}
+            placeholderTextColor={colors.outline}
             multiline
             style={[
-              typography.body,
+              typography.bodyLarge,
               styles.bodyInput,
-              { color: colors.text, minHeight: 180 },
+              { color: colors.onSurface, minHeight: 180 },
             ]}
           />
         ) : (
@@ -314,12 +314,12 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
             {checklist.map((item) => (
               <Animated.View
                 key={item.id}
-                layout={LinearTransition.springify().damping(spring.layout.damping).stiffness(spring.layout.stiffness)}
+                layout={LinearTransition.springify().damping(spring.spatialDefault.damping).stiffness(spring.spatialDefault.stiffness)}
                 style={styles.checkRow}
               >
                 <CheckItemCheckbox
                   checked={item.checked}
-                  color={item.checked ? colors.accent : colors.textMuted}
+                  color={item.checked ? colors.primary : colors.onSurfaceVariant}
                   onPress={() => toggleItemChecked(item.id)}
                 />
                 <TextInput
@@ -330,12 +330,12 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
                   onChangeText={(text) => updateItemText(item.id, text)}
                   onSubmitEditing={() => addItem(item.id)}
                   placeholder="Item"
-                  placeholderTextColor={colors.textFaint}
+                  placeholderTextColor={colors.outline}
                   style={[
-                    typography.body,
+                    typography.bodyLarge,
                     styles.itemInput,
                     {
-                      color: item.checked ? colors.textMuted : colors.text,
+                      color: item.checked ? colors.onSurfaceVariant : colors.onSurface,
                       textDecorationLine: item.checked ? 'line-through' : 'none',
                     },
                   ]}
@@ -345,7 +345,7 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
                   hitSlop={8}
                   style={styles.deleteTouch}
                 >
-                  <Ionicons name="close" size={18} color={colors.textFaint} />
+                  <Ionicons name="close" size={18} color={colors.outline} />
                 </Pressable>
               </Animated.View>
             ))}
@@ -356,11 +356,11 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
               scaleTo={0.96}
               style={[styles.addItemRow, { marginTop: spacing.sm }]}
             >
-              <Ionicons name="add" size={20} color={colors.accent} />
+              <Ionicons name="add" size={20} color={colors.primary} />
               <Text
                 style={[
-                  typography.body,
-                  { color: colors.accent, marginLeft: spacing.sm },
+                  typography.bodyLarge,
+                  { color: colors.primary, marginLeft: spacing.sm },
                 ]}
               >
                 Add item
@@ -373,14 +373,14 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
         <View style={{ marginTop: spacing.xl }}>
           <Text
             style={[
-              typography.caption,
-              { color: colors.textMuted, marginBottom: spacing.sm },
+              typography.bodySmall,
+              { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
             ]}
           >
             Color
           </Text>
           <View style={styles.swatchRow}>
-            {[null, ...notePastels].map((swatch) => {
+            {[null, ...noteColors].map((swatch) => {
               const isSelected = selectedColor === swatch;
               return (
                 <PressableScale
@@ -391,16 +391,16 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
                   style={[
                     styles.swatch,
                     {
-                      backgroundColor: swatch ?? colors.surfaceMuted,
-                      borderColor: isSelected ? colors.text : colors.border,
+                      backgroundColor: swatch ?? colors.surfaceContainerHigh,
+                      borderColor: isSelected ? colors.onSurface : colors.outlineVariant,
                       borderWidth: isSelected ? 2 : 1,
                     },
                   ]}
                 >
                   {!swatch ? (
-                    <Ionicons name="ban-outline" size={16} color={colors.textMuted} />
+                    <Ionicons name="ban-outline" size={16} color={colors.onSurfaceVariant} />
                   ) : isSelected ? (
-                    <Ionicons name="checkmark" size={16} color={colors.text} />
+                    <Ionicons name="checkmark" size={16} color={colors.onSurface} />
                   ) : null}
                 </PressableScale>
               );
@@ -422,8 +422,8 @@ export function NoteEditor({ initialNote }: NoteEditorProps) {
         {error ? (
           <Text
             style={[
-              typography.caption,
-              { color: colors.danger, marginTop: spacing.md },
+              typography.bodySmall,
+              { color: colors.error, marginTop: spacing.md },
             ]}
           >
             {error}

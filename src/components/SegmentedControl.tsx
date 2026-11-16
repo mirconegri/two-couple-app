@@ -22,15 +22,15 @@ export function SegmentedControl<T extends string>({
   onChange,
   style,
 }: SegmentedControlProps<T>) {
-  const { colors, radii, spacing, typography } = useTheme();
+  const { colors, shape, spacing, typography } = useTheme();
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colors.surfaceMuted,
-          borderRadius: radii.md,
+          backgroundColor: colors.surfaceContainerHigh,
+          borderRadius: shape.md,
           padding: 2,
         },
         style,
@@ -47,17 +47,17 @@ export function SegmentedControl<T extends string>({
             style={[
               styles.segment,
               {
-                borderRadius: radii.sm,
-                backgroundColor: isSelected ? colors.surface : 'transparent',
+                borderRadius: shape.sm,
+                backgroundColor: isSelected ? colors.surfaceContainerLow : 'transparent',
                 paddingVertical: spacing.xs + 2,
               },
             ]}
           >
             <Text
               style={[
-                typography.subheadline,
+                typography.bodyMedium,
                 {
-                  color: isSelected ? colors.text : colors.textMuted,
+                  color: isSelected ? colors.onSurface : colors.onSurfaceVariant,
                   fontWeight: isSelected ? '600' : '400',
                 },
               ]}

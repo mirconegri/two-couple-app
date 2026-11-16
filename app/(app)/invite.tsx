@@ -153,8 +153,8 @@ export default function InviteScreen() {
 
         <Text
           style={[
-            typography.largeTitle,
-            { color: colors.text, marginTop: spacing.xs, marginBottom: spacing.sm },
+            typography.displaySmall,
+            { color: colors.onSurface, marginTop: spacing.xs, marginBottom: spacing.sm },
           ]}
         >
           Invite Your Partner
@@ -163,20 +163,20 @@ export default function InviteScreen() {
         {isComplete ? (
           <Card style={{ marginTop: spacing.xl, paddingVertical: spacing.xl }}>
             <View style={styles.center}>
-              <Ionicons name="checkmark-circle-outline" size={56} color={colors.success} />
+              <Ionicons name="checkmark-circle-outline" size={56} color={colors.secondary} />
               <Text
                 style={[
-                  typography.title,
-                  { color: colors.text, textAlign: 'center', marginTop: spacing.md },
+                  typography.headlineMedium,
+                  { color: colors.onSurface, textAlign: 'center', marginTop: spacing.md },
                 ]}
               >
                 Your space is complete
               </Text>
               <Text
                 style={[
-                  typography.body,
+                  typography.bodyLarge,
                   {
-                    color: colors.textMuted,
+                    color: colors.onSurfaceVariant,
                     textAlign: 'center',
                     marginTop: spacing.sm,
                   },
@@ -190,8 +190,8 @@ export default function InviteScreen() {
           <View style={{ marginTop: spacing.xl }}>
             <Text
               style={[
-                typography.body,
-                { color: colors.textMuted, marginBottom: spacing.lg },
+                typography.bodyLarge,
+                { color: colors.onSurfaceVariant, marginBottom: spacing.lg },
               ]}
             >
               Share an invitation code with your partner. Once they join, your space
@@ -204,9 +204,9 @@ export default function InviteScreen() {
                   <Text
                     selectable
                     style={[
-                      typography.bodyStrong,
+                      typography.titleMedium,
                       {
-                        color: colors.text,
+                        color: colors.onSurface,
                         letterSpacing: 0.6,
                         textAlign: 'center',
                       },
@@ -218,8 +218,8 @@ export default function InviteScreen() {
 
                 <Text
                   style={[
-                    typography.caption,
-                    { color: colors.textMuted, marginTop: spacing.md, textAlign: 'center' },
+                    typography.bodySmall,
+                    { color: colors.onSurfaceVariant, marginTop: spacing.md, textAlign: 'center' },
                   ]}
                 >
                   Expires in 48 hours
@@ -227,9 +227,9 @@ export default function InviteScreen() {
 
                 <Text
                   style={[
-                    typography.caption,
+                    typography.bodySmall,
                     {
-                      color: colors.textFaint,
+                      color: colors.outline,
                       marginTop: spacing.xs,
                       marginBottom: spacing.lg,
                       textAlign: 'center',
@@ -275,8 +275,8 @@ export default function InviteScreen() {
                   <View style={{ marginTop: spacing.xl }}>
                     <Text
                       style={[
-                        typography.caption,
-                        { color: colors.textMuted, marginBottom: spacing.sm },
+                        typography.bodySmall,
+                        { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
                       ]}
                     >
                       An active invitation code exists for this space. Generating a new
@@ -296,8 +296,8 @@ export default function InviteScreen() {
             {error ? (
               <Text
                 style={[
-                  typography.caption,
-                  { color: colors.danger, marginTop: spacing.md },
+                  typography.bodySmall,
+                  { color: colors.error, marginTop: spacing.md },
                 ]}
               >
                 {error}

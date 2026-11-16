@@ -42,8 +42,8 @@ function RootNavigator() {
 
   // Keep Android root window background in sync with theme to eliminate transition flashes
   useEffect(() => {
-    void SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
-  }, [colors.background]);
+    void SystemUI.setBackgroundColorAsync(colors.surface).catch(() => {});
+  }, [colors.surface]);
 
   const navTheme = useMemo(() => {
     const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
@@ -51,24 +51,24 @@ function RootNavigator() {
       ...base,
       colors: {
         ...base.colors,
-        background: colors.background,
-        card: colors.surface,
-        border: colors.border,
-        text: colors.text,
-        primary: colors.accent,
+        background: colors.surface,
+        card: colors.surfaceContainerLow,
+        border: colors.outlineVariant,
+        text: colors.onSurface,
+        primary: colors.primary,
       },
     };
   }, [colors, scheme]);
 
   return (
     <NavigationThemeProvider value={navTheme}>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.background} />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.surface} />
       <Stack
         screenOptions={{
           headerShown: false,
           animation: 'fade',
           animationDuration: 200,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: colors.surface },
         }}
       >
         <Stack.Screen name="index" />

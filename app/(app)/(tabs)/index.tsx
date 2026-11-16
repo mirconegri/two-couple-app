@@ -29,7 +29,7 @@ import { formatEventRange } from '../../../src/utils/date';
 import { duration } from '../../../src/theme/motion';
 
 export default function HomeScreen() {
-  const { colors, spacing, typography, radii } = useTheme();
+  const { colors, spacing, typography, shape } = useTheme();
   const { members, userId } = useAuth();
   const { events } = useEvents();
   const { pendingCount, syncing, lastSyncedAt } = useSync();
@@ -115,9 +115,9 @@ export default function HomeScreen() {
   const getEntrance = (index: number) => {
     const delayMs = index * 60;
     if (reducedMotion) {
-      return FadeIn.duration(duration.fast).delay(delayMs);
+      return FadeIn.duration(duration.short3).delay(delayMs);
     }
-    return FadeInUp.duration(duration.base).delay(delayMs);
+    return FadeInUp.duration(duration.medium1).delay(delayMs);
   };
 
   return (
@@ -126,7 +126,7 @@ export default function HomeScreen() {
         {/* Top Header Bar */}
         <Animated.View entering={getEntrance(0)} style={headerParallaxStyle}>
           <View style={styles.topBar}>
-            <Text style={[typography.footnote, { color: colors.textMuted, textTransform: 'uppercase' }]}>
+            <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, textTransform: 'uppercase' }]}>
               {todayLabel}
             </Text>
             <NavBarButton
@@ -140,8 +140,8 @@ export default function HomeScreen() {
         <Animated.View entering={getEntrance(1)} style={collapsingTitleStyle}>
           <Text
             style={[
-              typography.largeTitle,
-              { color: colors.text, marginTop: spacing.xxs, marginBottom: spacing.lg },
+              typography.displaySmall,
+              { color: colors.onSurface, marginTop: spacing.xs, marginBottom: spacing.lg },
             ]}
           >
             {me?.displayName ? `Hello, ${me.displayName}` : 'Two'}
@@ -151,17 +151,17 @@ export default function HomeScreen() {
         {/* Partner Invite Banner */}
         {members.length < 2 ? (
           <Animated.View entering={getEntrance(2)}>
-            <Card style={{ marginBottom: spacing.lg, borderColor: colors.accent }}>
+            <Card style={{ marginBottom: spacing.lg, borderColor: colors.primary }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-                <Ionicons name="person-add-outline" size={20} color={colors.accent} style={{ marginRight: spacing.xs }} />
-                <Text style={[typography.headline, { color: colors.text }]}>
+                <Ionicons name="person-add-outline" size={20} color={colors.primary} style={{ marginRight: spacing.xs }} />
+                <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
                   Your partner hasn't joined yet
                 </Text>
               </View>
               <Text
                 style={[
-                  typography.subheadline,
-                  { color: colors.textMuted, marginBottom: spacing.md },
+                  typography.bodyMedium,
+                  { color: colors.onSurfaceVariant, marginBottom: spacing.md },
                 ]}
               >
                 Share your invitation code so they can join your private space.
@@ -179,13 +179,13 @@ export default function HomeScreen() {
         {!hasName ? (
           <Animated.View entering={getEntrance(2)}>
             <Card style={{ marginBottom: spacing.lg }}>
-              <Text style={[typography.headline, { color: colors.text }]}>
+              <Text style={[typography.titleMedium, { color: colors.onSurface }]}>
                 What should your partner call you?
               </Text>
               <Text
                 style={[
-                  typography.subheadline,
-                  { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
+                  typography.bodyMedium,
+                  { color: colors.onSurfaceVariant, marginTop: spacing.xs, marginBottom: spacing.md },
                 ]}
               >
                 Set a display name so your partner knows who sent messages and added events.
@@ -203,10 +203,10 @@ export default function HomeScreen() {
         <Animated.View entering={getEntrance(3)}>
           <Card style={{ marginBottom: spacing.xl }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={[typography.footnote, { color: colors.textMuted, textTransform: 'uppercase' }]}>
+              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, textTransform: 'uppercase' }]}>
                 Next up
               </Text>
-              <Text style={[typography.caption2, { color: colors.textFaint }]}>
+              <Text style={[typography.labelSmall, { color: colors.outline }]}>
                 {syncing
                   ? 'Syncing…'
                   : pendingCount > 0
@@ -217,13 +217,13 @@ export default function HomeScreen() {
 
             {nextEvent ? (
               <View style={{ marginTop: spacing.sm }}>
-                <Text style={[typography.title2, { color: colors.text }]}>
+                <Text style={[typography.headlineSmall, { color: colors.onSurface }]}>
                   {nextEvent.title}
                 </Text>
                 <Text
                   style={[
-                    typography.subheadline,
-                    { color: colors.textMuted, marginTop: spacing.xxs },
+                    typography.bodyMedium,
+                    { color: colors.onSurfaceVariant, marginTop: spacing.xs },
                   ]}
                 >
                   {formatEventRange(nextEvent)}
@@ -232,8 +232,8 @@ export default function HomeScreen() {
             ) : (
               <Text
                 style={[
-                  typography.subheadline,
-                  { color: colors.textMuted, marginTop: spacing.sm },
+                  typography.bodyMedium,
+                  { color: colors.onSurfaceVariant, marginTop: spacing.sm },
                 ]}
               >
                 Nothing planned for today. Add something for the two of you.
@@ -260,7 +260,7 @@ export default function HomeScreen() {
         {/* Upcoming Events List */}
         <Animated.View entering={getEntrance(4)}>
           <View style={styles.sectionHeader}>
-            <Text style={[typography.title3, { color: colors.text }]}>
+            <Text style={[typography.titleLarge, { color: colors.onSurface }]}>
               Coming up
             </Text>
             <PressableScale
@@ -269,7 +269,7 @@ export default function HomeScreen() {
               haptics="selection"
               scaleTo={0.96}
             >
-              <Text style={[typography.subheadline, { color: colors.accent }]}>See all</Text>
+              <Text style={[typography.bodyMedium, { color: colors.primary }]}>See all</Text>
             </PressableScale>
           </View>
 
