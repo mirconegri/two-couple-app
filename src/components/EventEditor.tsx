@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Keyboard, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Screen } from './Screen';
@@ -19,6 +18,7 @@ import { SegmentedButton } from './SegmentedButton';
 import { SwitchRow } from './SwitchRow';
 import { Chip } from './Chip';
 import { PressableScale } from './PressableScale';
+import { DatePickerModal, TimePickerModal } from './DateTimePickerModal';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useSettings } from '../settings/SettingsProvider';
@@ -28,7 +28,16 @@ import { eventColors, shape, spacing } from '../theme/tokens';
 import { enqueueEvent } from '../db/events';
 import { scheduleEventReminders } from '../notifications/reminders';
 import { newId } from '../lib/id';
-import { DEVICE_TIMEZONE, parseDateKey, toDateKey } from '../utils/date';
+import {
+  DEVICE_TIMEZONE,
+  formatTime24,
+  isOvernightRange,
+  parseDateKey,
+  parseTimeString,
+  resolveEndTime,
+  shiftEndTimeForStart,
+  toDateKey,
+} from '../utils/date';
 import { errorMessage } from '../utils/errors';
 import type { CalendarEvent, EventVisibility } from '../types';
 
@@ -44,15 +53,10 @@ export interface EventEditorProps {
   defaultDate?: string;
 }
 
-function parseTimeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(':').map((part) => Number.parseInt(part, 10));
-  return (hours ?? 0) * 60 + (minutes ?? 0);
-}
-
 function timeStringToDate(time: string, baseDate: Date): Date {
-  const [hours, minutes] = time.split(':').map((part) => Number.parseInt(part, 10));
+  const { hours, minutes } = parseTimeString(time);
   const date = new Date(baseDate);
-  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  date.setHours(hours, minutes, 0, 0);
   return date;
 }
 
@@ -62,7 +66,7 @@ function displayTime(time: string, baseDate: Date, use24Hour: boolean): string {
 
 export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
   const db = useSQLiteContext();
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
   const { coupleId, userId } = useAuth();
   const { notifyLocalChange } = useSync();
   const { settings } = useSettings();
@@ -108,41 +112,31 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   }, [dateKey]);
 
-  const togglePicker = (next: 'date' | 'start' | 'end') => {
+  const parsedStart = useMemo(() => parseTimeString(startTime), [startTime]);
+  const parsedEnd = useMemo(() => parseTimeString(endTime), [endTime]);
+  const overnight = !allDay && isOvernightRange(startTime, endTime);
+
+  const openPicker = (next: 'date' | 'start' | 'end') => {
+    Keyboard.dismiss();
     haptics.tick();
-    setPicker((current) => (current === next ? null : next));
+    setPicker(next);
   };
 
-  const onDateChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') setPicker(null);
-    if (event.type === 'set' && selected) setDateKey(toDateKey(selected));
+  const handleConfirmDate = (selected: Date) => {
+    setDateKey(toDateKey(selected));
+    setPicker(null);
   };
 
-  const onStartTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') setPicker(null);
-    if (event.type !== 'set' || !selected) return;
-
-    const next = format(selected, 'HH:mm');
+  const handleConfirmStart = (hours: number, minutes: number) => {
+    const next = formatTime24(hours, minutes);
+    setEndTime((curEnd) => shiftEndTimeForStart(startTime, next, curEnd));
     setStartTime(next);
-    if (parseTimeToMinutes(next) >= parseTimeToMinutes(endTime)) {
-      const bumped = new Date(selected);
-      bumped.setHours(selected.getHours() + 1);
-      setEndTime(format(bumped, 'HH:mm'));
-    }
+    setPicker(null);
   };
 
-  const onEndTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') setPicker(null);
-    if (event.type !== 'set' || !selected) return;
-
-    const next = format(selected, 'HH:mm');
-    if (parseTimeToMinutes(next) <= parseTimeToMinutes(startTime)) {
-      const bumped = timeStringToDate(startTime, currentDate);
-      bumped.setHours(bumped.getHours() + 1);
-      setEndTime(format(bumped, 'HH:mm'));
-    } else {
-      setEndTime(next);
-    }
+  const handleConfirmEnd = (hours: number, minutes: number) => {
+    setEndTime(resolveEndTime(startTime, formatTime24(hours, minutes)));
+    setPicker(null);
   };
 
   const save = async () => {
@@ -223,39 +217,12 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
       icon={icon}
       title={label}
       value={value}
-      onPress={() => togglePicker(mode)}
-      trailing={
-        picker === mode ? (
-          <Ionicons name="chevron-up" size={20} color={colors.onSurfaceVariant} />
-        ) : undefined
-      }
+      chevron
+      onPress={() => openPicker(mode)}
     />
   );
 
-  const renderPicker = (mode: 'date' | 'start' | 'end') => {
-    if (picker !== mode) return null;
-    if (mode === 'date') {
-      return (
-        <DateTimePicker
-          value={currentDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'inline' : 'default'}
-          themeVariant={scheme}
-          onChange={onDateChange}
-        />
-      );
-    }
-    return (
-      <DateTimePicker
-        value={timeStringToDate(mode === 'start' ? startTime : endTime, currentDate)}
-        mode="time"
-        is24Hour={settings.use24Hour}
-        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-        themeVariant={scheme}
-        onChange={mode === 'start' ? onStartTimeChange : onEndTimeChange}
-      />
-    );
-  };
+  const endValueLabel = `${displayTime(endTime, currentDate, settings.use24Hour)}${overnight ? ' (+1d)' : ''}`;
 
   return (
     <>
@@ -294,17 +261,10 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
                 'Starts',
                 displayTime(startTime, currentDate, settings.use24Hour),
               )}
-              {pickerRow(
-                'end',
-                'stop-outline',
-                'Ends',
-                displayTime(endTime, currentDate, settings.use24Hour),
-              )}
+              {pickerRow('end', 'stop-outline', 'Ends', endValueLabel)}
             </>
           ) : null}
         </ListSection>
-
-        {picker ? <View style={styles.picker}>{renderPicker(picker)}</View> : null}
 
         <TextField label="Location" value={location} onChangeText={setLocation} maxLength={300} />
 
@@ -400,6 +360,34 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
           </Text>
         ) : null}
       </Screen>
+
+      <DatePickerModal
+        visible={picker === 'date'}
+        value={currentDate}
+        weekStartsOn={settings.calendarStartDay}
+        onConfirm={handleConfirmDate}
+        onCancel={() => setPicker(null)}
+      />
+
+      <TimePickerModal
+        visible={picker === 'start'}
+        title="Start time"
+        hours={parsedStart.hours}
+        minutes={parsedStart.minutes}
+        use24Hour={settings.use24Hour}
+        onConfirm={handleConfirmStart}
+        onCancel={() => setPicker(null)}
+      />
+
+      <TimePickerModal
+        visible={picker === 'end'}
+        title="End time"
+        hours={parsedEnd.hours}
+        minutes={parsedEnd.minutes}
+        use24Hour={settings.use24Hour}
+        onConfirm={handleConfirmEnd}
+        onCancel={() => setPicker(null)}
+      />
     </>
   );
 }
@@ -408,7 +396,6 @@ const styles = StyleSheet.create({
   content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
   gap: { height: spacing.lg },
   notes: { height: 96, textAlignVertical: 'top', paddingTop: spacing.md },
-  picker: { marginBottom: spacing.xl },
   padded: { padding: spacing.lg },
   swatches: {
     flexDirection: 'row',

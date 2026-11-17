@@ -132,3 +132,54 @@ const WEEKDAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export function weekdayLabels(weekStartsOn: WeekStart): string[] {
   return Array.from({ length: 7 }, (_, index) => WEEKDAY_INITIALS[(weekStartsOn + index) % 7] ?? '');
 }
+
+/** Parse a `HH:mm` clock string safely into clamped 24h hours and minutes. */
+export function parseTimeString(time: string): { hours: number; minutes: number } {
+  const [rawHours, rawMinutes] = time.split(':').map((part) => Number.parseInt(part, 10));
+  const hours = Number.isFinite(rawHours) ? Math.min(23, Math.max(0, rawHours!)) : 0;
+  const minutes = Number.isFinite(rawMinutes) ? Math.min(59, Math.max(0, rawMinutes!)) : 0;
+  return { hours, minutes };
+}
+
+/** Format 24h hours and minutes into `HH:mm`, wrapping overflow cleanly. */
+export function formatTime24(hours: number, minutes: number): string {
+  const total = (((hours * 60 + minutes) % 1440) + 1440) % 1440;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/** Shift end time when start time changes, preserving the current event duration. */
+export function shiftEndTimeForStart(
+  oldStart: string,
+  newStart: string,
+  currentEnd: string,
+): string {
+  const prev = parseTimeString(oldStart);
+  const next = parseTimeString(newStart);
+  const end = parseTimeString(currentEnd);
+  const prevMin = prev.hours * 60 + prev.minutes;
+  const endMin = end.hours * 60 + end.minutes;
+  const durationMin = (((endMin - prevMin) % 1440) + 1440) % 1440 || 60;
+  return formatTime24(next.hours, next.minutes + durationMin);
+}
+
+/**
+ * Accept any chosen end time (including overnight past midnight), only bumping
+ * by 1 hour if the user picks the exact same minute as startTime.
+ */
+export function resolveEndTime(startTime: string, pickedEnd: string): string {
+  const start = parseTimeString(startTime);
+  const end = parseTimeString(pickedEnd);
+  if (start.hours === end.hours && start.minutes === end.minutes) {
+    return formatTime24(start.hours + 1, start.minutes);
+  }
+  return formatTime24(end.hours, end.minutes);
+}
+
+/** True when end clock time falls before start clock time (wraps into next day). */
+export function isOvernightRange(startTime: string, endTime: string): boolean {
+  const start = parseTimeString(startTime);
+  const end = parseTimeString(endTime);
+  return end.hours * 60 + end.minutes < start.hours * 60 + start.minutes;
+}

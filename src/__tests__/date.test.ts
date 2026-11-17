@@ -1,7 +1,12 @@
 import {
   buildMonthGrid,
   formatEventRange,
+  formatTime24,
+  isOvernightRange,
   parseDateKey,
+  parseTimeString,
+  resolveEndTime,
+  shiftEndTimeForStart,
   toDateKey,
 } from '../utils/date';
 import type { CalendarEvent } from '../types';
@@ -83,5 +88,32 @@ describe('buildMonthGrid', () => {
     const grid = buildMonthGrid(new Date(2026, 1, 15));
     expect(grid.some((cell) => cell.inMonth)).toBe(true);
     expect(grid.some((cell) => !cell.inMonth)).toBe(true);
+  });
+});
+
+describe('event time helpers', () => {
+  it('parses and clamps clock strings safely', () => {
+    expect(parseTimeString('09:05')).toEqual({ hours: 9, minutes: 5 });
+    expect(parseTimeString('25:99')).toEqual({ hours: 23, minutes: 59 });
+    expect(parseTimeString('bad')).toEqual({ hours: 0, minutes: 0 });
+  });
+
+  it('formats 24h times and wraps midnight overflow', () => {
+    expect(formatTime24(9, 5)).toBe('09:05');
+    expect(formatTime24(24, 30)).toBe('00:30');
+    expect(formatTime24(23, 75)).toBe('00:15');
+  });
+
+  it('preserves duration when shifting start time, including across midnight', () => {
+    expect(shiftEndTimeForStart('18:00', '20:00', '19:30')).toBe('21:30');
+    expect(shiftEndTimeForStart('18:00', '23:30', '19:00')).toBe('00:30');
+    expect(shiftEndTimeForStart('23:30', '23:00', '01:00')).toBe('00:30');
+  });
+
+  it('allows overnight end times and only bumps exact duplicates', () => {
+    expect(resolveEndTime('23:30', '01:00')).toBe('01:00');
+    expect(isOvernightRange('23:30', '01:00')).toBe(true);
+    expect(isOvernightRange('18:00', '19:00')).toBe(false);
+    expect(resolveEndTime('18:00', '18:00')).toBe('19:00');
   });
 });
