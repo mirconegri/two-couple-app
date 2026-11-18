@@ -1,9 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { Keyboard, StyleSheet, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Screen } from './Screen';
@@ -18,7 +22,6 @@ import { SegmentedButton } from './SegmentedButton';
 import { SwitchRow } from './SwitchRow';
 import { Chip } from './Chip';
 import { PressableScale } from './PressableScale';
-import { DatePickerModal, TimePickerModal } from './DateTimePickerModal';
 import { useAuth } from '../auth/AuthProvider';
 import { useSync } from '../sync/SyncProvider';
 import { useSettings } from '../settings/SettingsProvider';
@@ -30,7 +33,6 @@ import { scheduleEventReminders } from '../notifications/reminders';
 import { newId } from '../lib/id';
 import {
   DEVICE_TIMEZONE,
-  formatTime24,
   isOvernightRange,
   parseDateKey,
   parseTimeString,
@@ -66,7 +68,7 @@ function displayTime(time: string, baseDate: Date, use24Hour: boolean): string {
 
 export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
   const db = useSQLiteContext();
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const { coupleId, userId } = useAuth();
   const { notifyLocalChange } = useSync();
   const { settings } = useSettings();
@@ -98,7 +100,9 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
   const [reminders, setReminders] = useState<number[]>(initialEvent?.reminderMinutes ?? []);
   const [selectedColor, setSelectedColor] = useState<string | null>(initialEvent?.color ?? null);
 
-  const [picker, setPicker] = useState<'date' | 'start' | 'end' | null>(null);
+  // iOS inline picker state; Android opens native dialogs imperatively so re-renders never reset them.
+  const [iosPicker, setIosPicker] = useState<'date' | 'start' | 'end' | null>(null);
+  const androidPickerOpen = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,31 +116,50 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   }, [dateKey]);
 
-  const parsedStart = useMemo(() => parseTimeString(startTime), [startTime]);
-  const parsedEnd = useMemo(() => parseTimeString(endTime), [endTime]);
-  const overnight = !allDay && isOvernightRange(startTime, endTime);
+  const applySelection = (mode: 'date' | 'start' | 'end', selected: Date) => {
+    if (mode === 'date') {
+      setDateKey(toDateKey(selected));
+      return;
+    }
+    const next = format(selected, 'HH:mm');
+    if (mode === 'start') {
+      setStartTime(next);
+      setEndTime((curEnd) => shiftEndTimeForStart(startTime, next, curEnd));
+      return;
+    }
+    setEndTime(resolveEndTime(startTime, next));
+  };
 
-  const openPicker = (next: 'date' | 'start' | 'end') => {
+  const openPicker = (mode: 'date' | 'start' | 'end') => {
     Keyboard.dismiss();
     haptics.tick();
-    setPicker(next);
-  };
 
-  const handleConfirmDate = (selected: Date) => {
-    setDateKey(toDateKey(selected));
-    setPicker(null);
-  };
+    if (Platform.OS !== 'android') {
+      setIosPicker((current) => (current === mode ? null : mode));
+      return;
+    }
 
-  const handleConfirmStart = (hours: number, minutes: number) => {
-    const next = formatTime24(hours, minutes);
-    setEndTime((curEnd) => shiftEndTimeForStart(startTime, next, curEnd));
-    setStartTime(next);
-    setPicker(null);
-  };
+    if (androidPickerOpen.current) return;
+    androidPickerOpen.current = true;
 
-  const handleConfirmEnd = (hours: number, minutes: number) => {
-    setEndTime(resolveEndTime(startTime, formatTime24(hours, minutes)));
-    setPicker(null);
+    const value =
+      mode === 'date'
+        ? currentDate
+        : timeStringToDate(mode === 'start' ? startTime : endTime, currentDate);
+
+    DateTimePickerAndroid.open({
+      value,
+      mode: mode === 'date' ? 'date' : 'time',
+      is24Hour: settings.use24Hour,
+      firstDayOfWeek: mode === 'date' ? settings.calendarStartDay : undefined,
+      onChange: (event: DateTimePickerEvent, selected?: Date) => {
+        androidPickerOpen.current = false;
+        if (event.type === 'set' && selected) applySelection(mode, selected);
+      },
+      onError: () => {
+        androidPickerOpen.current = false;
+      },
+    });
   };
 
   const save = async () => {
@@ -217,11 +240,17 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
       icon={icon}
       title={label}
       value={value}
-      chevron
       onPress={() => openPicker(mode)}
+      trailing={
+        iosPicker === mode ? (
+          <Ionicons name="chevron-up" size={20} color={colors.onSurfaceVariant} />
+        ) : undefined
+      }
+      chevron={iosPicker !== mode}
     />
   );
 
+  const overnight = !allDay && isOvernightRange(startTime, endTime);
   const endValueLabel = `${displayTime(endTime, currentDate, settings.use24Hour)}${overnight ? ' (+1d)' : ''}`;
 
   return (
@@ -265,6 +294,26 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
             </>
           ) : null}
         </ListSection>
+
+        {Platform.OS === 'ios' && iosPicker ? (
+          <View style={styles.picker}>
+            <DateTimePicker
+              key={iosPicker}
+              value={
+                iosPicker === 'date'
+                  ? currentDate
+                  : timeStringToDate(iosPicker === 'start' ? startTime : endTime, currentDate)
+              }
+              mode={iosPicker === 'date' ? 'date' : 'time'}
+              is24Hour={settings.use24Hour}
+              display={iosPicker === 'date' ? 'inline' : 'spinner'}
+              themeVariant={scheme}
+              onChange={(event, selected) => {
+                if (event.type === 'set' && selected) applySelection(iosPicker, selected);
+              }}
+            />
+          </View>
+        ) : null}
 
         <TextField label="Location" value={location} onChangeText={setLocation} maxLength={300} />
 
@@ -360,34 +409,6 @@ export function EventEditor({ initialEvent, defaultDate }: EventEditorProps) {
           </Text>
         ) : null}
       </Screen>
-
-      <DatePickerModal
-        visible={picker === 'date'}
-        value={currentDate}
-        weekStartsOn={settings.calendarStartDay}
-        onConfirm={handleConfirmDate}
-        onCancel={() => setPicker(null)}
-      />
-
-      <TimePickerModal
-        visible={picker === 'start'}
-        title="Start time"
-        hours={parsedStart.hours}
-        minutes={parsedStart.minutes}
-        use24Hour={settings.use24Hour}
-        onConfirm={handleConfirmStart}
-        onCancel={() => setPicker(null)}
-      />
-
-      <TimePickerModal
-        visible={picker === 'end'}
-        title="End time"
-        hours={parsedEnd.hours}
-        minutes={parsedEnd.minutes}
-        use24Hour={settings.use24Hour}
-        onConfirm={handleConfirmEnd}
-        onCancel={() => setPicker(null)}
-      />
     </>
   );
 }
@@ -396,6 +417,7 @@ const styles = StyleSheet.create({
   content: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
   gap: { height: spacing.lg },
   notes: { height: 96, textAlignVertical: 'top', paddingTop: spacing.md },
+  picker: { marginBottom: spacing.xl },
   padded: { padding: spacing.lg },
   swatches: {
     flexDirection: 'row',
