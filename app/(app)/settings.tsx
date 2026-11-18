@@ -5,7 +5,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
+import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Screen } from '../../src/components/Screen';
 import { ListSection } from '../../src/components/ListSection';
@@ -24,7 +24,6 @@ import { WALLPAPER_PRESETS } from '../../src/theme/wallpaper';
 import { seedPalette, shape, spacing } from '../../src/theme/tokens';
 import { useSettings } from '../../src/settings/SettingsProvider';
 import { TEXT_SCALE_OPTIONS } from '../../src/settings/types';
-import { useHaptics } from '../../src/lib/haptics';
 import {
   loadNotificationSound,
   saveNotificationSound,
@@ -81,12 +80,11 @@ const WALLPAPER_SCOPE_OPTIONS: Array<{ value: 'chat' | 'all'; label: string }> =
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
   const { settings, update } = useSettings();
   const { email, userId, coupleId, members, signOut, refreshCouple } = useAuth();
   const { pendingCount, realtimeStatus, lastSyncedAt, syncing, syncNow } = useSync();
   const { prefs: wallpaperPrefs, setPreset, setCustomPhoto, setScope, resetToDefault } = useWallpaper();
-  const haptics = useHaptics();
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from './Screen';
 import { Button } from './Button';
-import { Chip } from './Chip';
 import { Text } from './Text';
 import { TopAppBar } from './TopAppBar';
 import { IconButton } from './IconButton';

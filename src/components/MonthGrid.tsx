@@ -114,7 +114,6 @@ function DayCell({
 }
 
 export function MonthGrid({ anchor, selected, weekStartsOn, events, onSelectDate }: MonthGridProps) {
-  const { colors } = useTheme();
   const cells = buildMonthGrid(anchor, weekStartsOn);
 
   const eventsByDay = new Map<string, CalendarEvent[]>();

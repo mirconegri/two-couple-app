@@ -8,7 +8,7 @@ import DateTimePicker, {
   DateTimePickerAndroid,
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
+import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { Screen } from './Screen';
 import { TextField } from './TextField';

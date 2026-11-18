@@ -3,7 +3,6 @@ import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { shape, spacing } from '../theme/tokens';
-import { PressableScale } from './PressableScale';
 import { Text } from './Text';
 
 export interface ListSectionProps {

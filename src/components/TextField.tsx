@@ -109,8 +109,8 @@ export function TextField({
 
 const styles = StyleSheet.create({
   wrap: { width: '100%' },
-  container: { height: 56, borderRadius: shape.md, justifyContent: 'center' },
+  container: { minHeight: 56, borderRadius: shape.md, justifyContent: 'center' },
   label: { position: 'absolute', left: spacing.md, paddingHorizontal: spacing.xs },
-  input: { paddingHorizontal: spacing.lg, paddingVertical: 0, height: '100%' },
+  input: { paddingHorizontal: spacing.lg, paddingVertical: 0, minHeight: 56 },
   supporting: { marginTop: spacing.xs, marginLeft: spacing.lg },
 });

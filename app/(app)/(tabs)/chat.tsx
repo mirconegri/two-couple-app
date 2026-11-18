@@ -29,7 +29,6 @@ import { supabaseRemote } from '../../../src/sync/remote';
 import { newId } from '../../../src/lib/id';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { useWallpaper } from '../../../src/theme/WallpaperProvider';
-import { useSettings } from '../../../src/settings/SettingsProvider';
 import {
   encodeStickerMessage,
   updateStickerStoragePath,
@@ -56,7 +55,6 @@ export default function ChatScreen() {
   const { notifyLocalChange, syncing, refreshUnread, setChatActive } = useSync();
   const { messages, loading, loadingMore, loadOlder, retry, hasMore, addOptimisticMessage } =
     useMessages();
-  const { settings } = useSettings();
 
   const { prefs: wallpaperPrefs } = useWallpaper();
   const insets = useSafeAreaInsets();

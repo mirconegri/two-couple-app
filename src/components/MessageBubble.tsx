@@ -238,7 +238,7 @@ export function MessageBubble({
   isGroupEnd,
   onRetry,
 }: MessageBubbleProps) {
-  const { colors, reducedMotion } = useTheme();
+  const { colors } = useTheme();
   const { settings } = useSettings();
   const { use24Hour, chatDensity, bubbleShape } = settings;
 

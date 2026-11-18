@@ -25,7 +25,7 @@ describe('stickers module', () => {
     const sticker: Sticker = {
       id: 'love_kiss',
       packId: 'love',
-      label: 'Bacio',
+      label: 'Kiss',
       emoji: '😘',
     };
     const encoded = encodeStickerMessage(sticker);
